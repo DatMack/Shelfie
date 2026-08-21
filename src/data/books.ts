@@ -11,6 +11,7 @@ export type ShelfDisplayStyle =
   | 'Audio Case'
   | 'E-reader'
   | 'Digital Tile'
+export type SpineDesign = 'Leather' | 'Custom Image'
 
 export type Book = {
   id: string
@@ -43,6 +44,11 @@ export type Book = {
   displayStyle?: ShelfDisplayStyle
   displayEditionId?: string
   displayCoverUrl?: string
+  spineDesign?: SpineDesign
+  customSpineUrl?: string | null
+  customSpinePositionX?: number
+  customSpinePositionY?: number
+  customSpineZoom?: number
 
   // Ownership is intentionally separate from reading status.
   owned?: boolean

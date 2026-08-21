@@ -86,8 +86,8 @@ export function mapLibraryRows(rows: any[]): Book[] {
       author: Array.isArray(catalog.authors) && catalog.authors.length ? catalog.authors.join(', ') : 'Unknown author',
       status: statusFromDatabase(row.status),
       shelfIndex: row.shelf_index ?? 0,
-      color: colors.color,
-      accent: colors.accent,
+      color: row.spine_color ?? colors.color,
+      accent: row.spine_accent ?? colors.accent,
       pages: catalog.page_count ?? 0,
       currentPage: row.current_page ?? 0,
       rating: row.rating ?? undefined,
@@ -124,6 +124,11 @@ export function mapLibraryRows(rows: any[]): Book[] {
       displayStyle: displayStyleFromDatabase(row.display_style),
       displayEditionId: row.display_edition_id ?? undefined,
       displayCoverUrl: row.display_cover_url ?? undefined,
+      spineDesign: row.spine_design === 'custom_image' ? 'Custom Image' : 'Leather',
+      customSpineUrl: row.custom_spine_url ?? undefined,
+      customSpinePositionX: row.custom_spine_position_x ?? 50,
+      customSpinePositionY: row.custom_spine_position_y ?? 50,
+      customSpineZoom: row.custom_spine_zoom ?? 100,
     }
   })
 }
@@ -271,7 +276,38 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.moodTags !== undefined) output.mood_tags = patch.moodTags
   if (patch.rereadCount !== undefined) output.reread_count = patch.rereadCount
   if (patch.shelfIndex !== undefined) output.shelf_index = patch.shelfIndex
+  if (patch.displayStyle !== undefined) {
+    const styles: Record<string, string> = {
+      Auto: 'auto', Spine: 'spine', 'Front Cover': 'front_cover', Cassette: 'cassette',
+      'Cassette Case': 'cassette_case', 'Audio Case': 'audio_case', 'E-reader': 'e_reader', 'Digital Tile': 'digital_tile',
+    }
+    output.display_style = styles[patch.displayStyle]
+  }
+  if (patch.color !== undefined) output.spine_color = patch.color
+  if (patch.accent !== undefined) output.spine_accent = patch.accent
+  if (patch.spineDesign !== undefined) output.spine_design = patch.spineDesign === 'Custom Image' ? 'custom_image' : 'leather'
+  if (patch.customSpineUrl !== undefined) output.custom_spine_url = patch.customSpineUrl
+  if (patch.customSpinePositionX !== undefined) output.custom_spine_position_x = patch.customSpinePositionX
+  if (patch.customSpinePositionY !== undefined) output.custom_spine_position_y = patch.customSpinePositionY
+  if (patch.customSpineZoom !== undefined) output.custom_spine_zoom = patch.customSpineZoom
   return output
+}
+
+export async function uploadCustomSpine(userBookId: string, file: File) {
+  const client = requireSupabase()
+  const { data: { user }, error: userError } = await client.auth.getUser()
+  if (userError || !user) throw userError ?? new Error('Sign in to upload spine art.')
+
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const path = `${user.id}/${userBookId}/spine-${Date.now()}.${extension}`
+  const { error } = await client.storage.from('book-spines').upload(path, file, {
+    cacheControl: '3600',
+    contentType: file.type || 'image/jpeg',
+    upsert: true,
+  })
+  if (error) throw error
+  const { data } = client.storage.from('book-spines').getPublicUrl(path)
+  return data.publicUrl
 }
 
 export async function updateMyBook(userBookId: string, patch: Record<string, unknown>) {

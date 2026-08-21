@@ -204,18 +204,21 @@ function BookSpine({
   const orientation = placement?.orientation ?? 'upright'
   const displayStyle = effectiveDisplayStyle(book)
   const coverUrl = shelfCoverUrl(book)
-  const showsCoverArt = Boolean(coverUrl) && (displayStyle === 'Spine' || displayStyle === 'Front Cover')
+  const customSpine = displayStyle === 'Spine' && book.spineDesign === 'Custom Image' && Boolean(book.customSpineUrl)
+  const showsCoverArt = (Boolean(coverUrl) && displayStyle === 'Front Cover') || customSpine
   const frontCover = displayStyle === 'Front Cover'
-  const illustratedSpine = Boolean(coverUrl) && displayStyle === 'Spine'
 
   return (
     <button
-      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${illustratedSpine ? 'book-illustrated-spine' : ''} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
+      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${customSpine ? 'book-custom-spine' : 'book-leather-spine'} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
       style={{
         '--book-color': book.color,
         '--book-accent': book.accent,
         '--book-height': `${dimensions.height}px`,
         '--book-width': `${dimensions.width}px`,
+        '--spine-position-x': `${book.customSpinePositionX ?? 50}%`,
+        '--spine-position-y': `${book.customSpinePositionY ?? 50}%`,
+        '--spine-zoom': `${(book.customSpineZoom ?? 100) / 100}`,
         ...(placement ? {
           '--book-x': `${placement.x}px`,
           '--book-y': `${placement.y}px`,
@@ -232,7 +235,7 @@ function BookSpine({
       {showsCoverArt && (
         <img
           className="shelf-cover-art"
-          src={coverUrl}
+          src={customSpine ? book.customSpineUrl! : coverUrl}
           alt=""
           aria-hidden="true"
           draggable={false}
