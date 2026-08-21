@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
+import { CSSProperties, DragEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   Archive,
   BarChart3,
@@ -136,6 +136,35 @@ export function App() {
     setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
   }
 
+  function reorderBook(draggedId: string, targetId: string | null, targetStatus: ReadingStatus) {
+    setBooks((current) => {
+      if (draggedId === targetId) return current
+      const dragged = current.find((book) => book.id === draggedId)
+      if (!dragged) return current
+
+      const remaining = current.filter((book) => book.id !== draggedId)
+      const movedBook = dragged.status === targetStatus ? dragged : { ...dragged, status: targetStatus }
+
+      if (targetId) {
+        const targetIndex = remaining.findIndex((book) => book.id === targetId)
+        if (targetIndex >= 0) {
+          remaining.splice(targetIndex, 0, movedBook)
+          return remaining
+        }
+      }
+
+      let insertIndex = remaining.length
+      for (let index = remaining.length - 1; index >= 0; index -= 1) {
+        if (remaining[index].status === targetStatus) {
+          insertIndex = index + 1
+          break
+        }
+      }
+      remaining.splice(insertIndex, 0, movedBook)
+      return remaining
+    })
+  }
+
   function addBook(result: BookSearchResult, options: AddBookOptions) {
     const duplicate = books.find(
       (book) => book.externalId === result.key || (book.isbn && result.isbn && book.isbn === result.isbn),
@@ -248,6 +277,7 @@ export function App() {
             glowFocus={glowFocus}
             onSelect={setSelectedBookId}
             onUpdate={updateBook}
+            onReorder={reorderBook}
           />
         )}
 
@@ -286,6 +316,7 @@ function ShelfView({
   glowFocus,
   onSelect,
   onUpdate,
+  onReorder,
 }: {
   books: Book[]
   filtered: Book[]
@@ -293,9 +324,44 @@ function ShelfView({
   glowFocus: boolean
   onSelect: (id: string) => void
   onUpdate: (id: string, patch: Partial<Book>) => void
+  onReorder: (draggedId: string, targetId: string | null, targetStatus: ReadingStatus) => void
 }) {
+  const [draggedBookId, setDraggedBookId] = useState<string | null>(null)
+  const [dragOverBookId, setDragOverBookId] = useState<string | null>(null)
+  const [dragOverStatus, setDragOverStatus] = useState<ReadingStatus | null>(null)
   const ownedCount = books.filter((book) => book.owned).length
   const collectionValue = books.reduce((sum, book) => sum + (book.owned ? book.estimatedValue ?? 0 : 0), 0)
+
+  function clearDragState() {
+    setDraggedBookId(null)
+    setDragOverBookId(null)
+    setDragOverStatus(null)
+  }
+
+  function startDrag(event: DragEvent<HTMLButtonElement>, book: Book) {
+    setDraggedBookId(book.id)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', book.id)
+  }
+
+  function getDraggedId(event: DragEvent<HTMLElement>) {
+    return draggedBookId || event.dataTransfer.getData('text/plain')
+  }
+
+  function dropOnBook(event: DragEvent<HTMLButtonElement>, targetBook: Book, status: ReadingStatus) {
+    event.preventDefault()
+    event.stopPropagation()
+    const draggedId = getDraggedId(event)
+    if (draggedId) onReorder(draggedId, targetBook.id, status)
+    clearDragState()
+  }
+
+  function dropOnShelf(event: DragEvent<HTMLDivElement>, status: ReadingStatus) {
+    event.preventDefault()
+    const draggedId = getDraggedId(event)
+    if (draggedId) onReorder(draggedId, null, status)
+    clearDragState()
+  }
 
   return (
     <>
@@ -307,19 +373,30 @@ function ShelfView({
         {collectionValue > 0 && <span><strong>{money(collectionValue)}</strong> est. collection</span>}
       </div>
 
+      <div className="shelf-drag-hint">Grab a book to rearrange it. Drop it on another shelf to change its reading status.</div>
+
       <div className="layout">
         <section className="bookcase" aria-label="Virtual bookshelf">
           <div className="bookcase-frame">
             {shelfOrder.map((status) => {
               const shelfBooks = filtered.filter((book) => book.status === status)
               return (
-                <div className="shelf-row" key={status}>
+                <div className={`shelf-row ${dragOverStatus === status ? 'drag-over-shelf' : ''}`} key={status}>
                   <div className="shelf-label"><span>{status}</span><span>{shelfBooks.length}</span></div>
-                  <div className="books">
-                    {shelfBooks.length === 0 && <div className="empty-shelf">No books here yet.</div>}
+                  <div
+                    className={`books ${dragOverStatus === status && !dragOverBookId ? 'shelf-drop-active' : ''}`}
+                    onDragOver={(event) => {
+                      event.preventDefault()
+                      event.dataTransfer.dropEffect = 'move'
+                      setDragOverStatus(status)
+                      setDragOverBookId(null)
+                    }}
+                    onDrop={(event) => dropOnShelf(event, status)}
+                  >
+                    {shelfBooks.length === 0 && <div className="empty-shelf">Drop a book here.</div>}
                     {shelfBooks.map((book, index) => (
                       <button
-                        className={`book-spine ${selectedBook?.id === book.id ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''}`}
+                        className={`book-spine ${selectedBook?.id === book.id ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${draggedBookId === book.id ? 'dragging' : ''} ${dragOverBookId === book.id && draggedBookId !== book.id ? 'drop-target' : ''}`}
                         style={{
                           '--book-color': book.color,
                           '--book-accent': book.accent,
@@ -327,8 +404,20 @@ function ShelfView({
                           '--book-width': `${82 + ((index * 11) % 28)}px`,
                         } as CSSProperties}
                         key={book.id}
+                        draggable
+                        onDragStart={(event) => startDrag(event, book)}
+                        onDragOver={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          event.dataTransfer.dropEffect = 'move'
+                          setDragOverStatus(status)
+                          setDragOverBookId(book.id)
+                        }}
+                        onDrop={(event) => dropOnBook(event, book, status)}
+                        onDragEnd={clearDragState}
                         onClick={() => onSelect(book.id)}
-                        aria-label={`${book.title} by ${book.author}`}
+                        aria-label={`${book.title} by ${book.author}. Drag to rearrange.`}
+                        title="Drag to rearrange"
                       >
                         {book.owned && <span className="owned-dot" title="Owned" />}
                         <span className="spine-ornament">✦</span>
