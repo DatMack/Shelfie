@@ -44,6 +44,17 @@ export async function signInWithEmail(email: string, password: string) {
   return data
 }
 
+export async function resendConfirmationEmail(email: string) {
+  const client = requireSupabase()
+  const { data, error } = await client.auth.resend({
+    type: 'signup',
+    email: email.trim(),
+    options: { emailRedirectTo: authRedirectUrl() },
+  })
+  if (error) throw error
+  return data
+}
+
 export async function signOut() {
   const client = requireSupabase()
   const { error } = await client.auth.signOut()
