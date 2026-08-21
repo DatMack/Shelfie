@@ -1,0 +1,34 @@
+.auth-signout-chip {
+  position: fixed;
+  top: 7px;
+  right: 14px;
+  z-index: 80;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(229, 183, 116, .14);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(20, 14, 10, .9);
+  color: #9f8a70;
+  font-size: 11px;
+  backdrop-filter: blur(10px);
+}
+
+.auth-signout-chip:hover,
+.auth-signout-chip:focus-visible {
+  border-color: rgba(229, 183, 116, .34);
+  color: #edc98f;
+  outline: none;
+}
+
+@media (max-width: 760px) {
+  .auth-signout-chip {
+    top: auto;
+    right: 14px;
+    bottom: 14px;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+}
