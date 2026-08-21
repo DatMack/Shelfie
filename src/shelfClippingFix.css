@@ -1,0 +1,25 @@
+/* Keep tall/selected books fully inside the horizontally scrollable shelf viewport. */
+.freeform-bookcase .books {
+  min-height: 272px;
+  padding-top: 8px;
+}
+
+.freeform-bookcase .shelf-row {
+  min-height: 300px;
+}
+
+.freeform-bookcase .book-spine:hover,
+.freeform-bookcase .book-spine:focus-visible,
+.freeform-bookcase .book-spine.selected {
+  transform: translateY(-9px) scale(1.025);
+}
+
+@media (max-width: 720px) {
+  .freeform-bookcase .books {
+    min-height: 260px;
+  }
+
+  .freeform-bookcase .shelf-row {
+    min-height: 288px;
+  }
+}
