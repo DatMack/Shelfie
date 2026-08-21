@@ -52,7 +52,7 @@ export function loadShelfFinishForStyle(style: ShelfStyleId): ShelfFinishId {
   const saved = loadStylePreferences()[style]?.finish
   if (saved && shelfFinishes.some((item) => item.id === saved)) return saved
 
-  // Migrate the original global finish into whichever shelf style was active first.
+  // Before per-style preferences existed, only the currently active shelf had a stored finish.
   if (style === loadShelfStyle()) {
     return readChoice(shelfFinishKey, shelfFinishes.map((item) => item.id), 'starter-wood')
   }
@@ -79,9 +79,23 @@ export function applySiteTheme(theme: SiteThemeId) {
 }
 
 export function saveShelfStyle(value: ShelfStyleId) {
-  try { localStorage.setItem(shelfStyleKey, value) } catch { /* Keep the in-memory choice. */ }
-  const finish = loadShelfFinishForStyle(value)
-  try { localStorage.setItem(shelfFinishKey, finish) } catch { /* Keep the in-memory choice. */ }
+  const currentStyle = loadShelfStyle()
+  const preferences = loadStylePreferences()
+
+  // Migrate the old global finish into the shelf that actually owned it before switching away.
+  if (!preferences[currentStyle]?.finish) {
+    const legacyFinish = readChoice(shelfFinishKey, shelfFinishes.map((item) => item.id), 'starter-wood')
+    preferences[currentStyle] = { ...preferences[currentStyle], finish: legacyFinish }
+  }
+
+  const targetFinish = preferences[value]?.finish ?? 'starter-wood'
+  saveStylePreferences(preferences)
+  try {
+    localStorage.setItem(shelfStyleKey, value)
+    localStorage.setItem(shelfFinishKey, targetFinish)
+  } catch {
+    // Keep the in-memory choice if browser storage is unavailable.
+  }
   notifyCustomizationChange()
 }
 
