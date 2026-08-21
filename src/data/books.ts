@@ -2,6 +2,15 @@ export type ReadingStatus = 'Currently Reading' | 'Read' | 'Want to Read' | 'DNF
 export type BookFormat = 'Hardcover' | 'Paperback' | 'Mass Market' | 'Ebook' | 'Audiobook' | 'Other'
 export type BookCondition = 'New' | 'Like New' | 'Very Good' | 'Good' | 'Fair' | 'Poor'
 export type MarketplaceStatus = 'Not Listed' | 'For Trade' | 'For Sale' | 'Free'
+export type ShelfDisplayStyle =
+  | 'Auto'
+  | 'Spine'
+  | 'Front Cover'
+  | 'Cassette'
+  | 'Cassette Case'
+  | 'Audio Case'
+  | 'E-reader'
+  | 'Digital Tile'
 
 export type Book = {
   id: string
@@ -26,6 +35,11 @@ export type Book = {
   isbn?: string
   externalId?: string
   source?: 'sample' | 'openlibrary' | 'manual'
+
+  // Shelf appearance is a per-book override. Auto follows the book format.
+  displayStyle?: ShelfDisplayStyle
+  displayEditionId?: string
+  displayCoverUrl?: string
 
   // Ownership is intentionally separate from reading status.
   owned?: boolean
