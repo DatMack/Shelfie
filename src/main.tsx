@@ -13,6 +13,7 @@ import './authSession.css'
 import './libraryFreedom.css'
 import './shelfClippingFix.css'
 import './customization.css'
+import './shelfRealism.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
