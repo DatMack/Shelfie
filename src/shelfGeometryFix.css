@@ -20,17 +20,34 @@
   box-sizing: border-box;
 }
 
-/* Floating shelves have no outer frame/border, so absolute-positioned children provide no intrinsic
-   width. Explicit stretching prevents a saved layout from collapsing the shelf to a sliver. */
+/* Floating shelves are not a framed bookcase. Do not route them through the side-decor grid because
+   absolutely-positioned books do not contribute intrinsic width and can make that middle grid track
+   collapse. A floating shelf gets the entire available width. */
+.shelf-style-floating .bookcase-stage {
+  display: block;
+  width: 100%;
+}
+
+.shelf-style-floating .bookcase-side-decor {
+  display: none !important;
+}
+
 .shelf-style-floating .bookcase-frame,
 .shelf-style-floating .shelf-row,
 .shelf-style-floating .books {
+  display: block;
   width: 100%;
   min-width: 0;
+  max-width: none;
   box-sizing: border-box;
 }
 
+.shelf-style-floating .books {
+  position: relative;
+}
+
 .shelf-style-floating .wood-shelf {
+  display: block;
   width: auto;
   min-width: 0;
 }
