@@ -1,5 +1,5 @@
 import { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
-import type { Book, ReadingStatus } from '../data/books'
+import type { Book, ReadingStatus, ShelfDisplayStyle } from '../data/books'
 import { shelfStyles, type ShelfFinishId, type ShelfStyleId } from '../data/customization'
 import { customizationEvent, loadShelfFinish, loadShelfStyle } from '../lib/customizationRuntime'
 
@@ -80,7 +80,6 @@ function loadLayoutProfiles(): LayoutProfiles {
       )
     }
 
-    // Preserve the original Organize Mode layout as the Classic / All showcase.
     const legacy = localStorage.getItem(legacyFreePlacementKey)
     if (legacy) {
       const migrated = normalizePlacementMap(JSON.parse(legacy))
@@ -90,6 +89,18 @@ function loadLayoutProfiles(): LayoutProfiles {
     // A clean set of shelf profiles is a safe fallback if browser storage is unavailable.
   }
   return {}
+}
+
+function effectiveDisplayStyle(book: Book): ShelfDisplayStyle {
+  const selected = book.displayStyle ?? 'Auto'
+  if (selected !== 'Auto') return selected
+  if (book.format === 'Audiobook') return 'Cassette'
+  if (book.format === 'Ebook') return 'E-reader'
+  return 'Spine'
+}
+
+function shelfCoverUrl(book: Book) {
+  return book.displayCoverUrl ?? book.coverUrl
 }
 
 function bookDimensions(book: Book, index: number) {
@@ -133,6 +144,11 @@ function bookDimensions(book: Book, index: number) {
     width += 5
   }
 
+  // A face-out book consumes realistic shelf width instead of behaving like a thin spine.
+  if (effectiveDisplayStyle(book) === 'Front Cover') {
+    width = Math.max(width, Math.round(height * 0.62))
+  }
+
   return { height, width }
 }
 
@@ -173,10 +189,14 @@ function BookSpine({
   const dimensions = bookDimensions(book, index)
   const formatClass = (book.format ?? 'standard').toLowerCase().replaceAll(' ', '-')
   const orientation = placement?.orientation ?? 'upright'
+  const displayStyle = effectiveDisplayStyle(book)
+  const coverUrl = shelfCoverUrl(book)
+  const showsCoverArt = Boolean(coverUrl) && (displayStyle === 'Spine' || displayStyle === 'Front Cover')
+  const frontCover = displayStyle === 'Front Cover'
 
   return (
     <button
-      className={`book-spine book-format-${formatClass} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
+      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
       style={{
         '--book-color': book.color,
         '--book-accent': book.accent,
@@ -195,10 +215,20 @@ function BookSpine({
       aria-label={`${book.title} by ${book.author}. ${book.format ?? 'Book'} format.${organizeMode ? ' Organize mode active.' : ''}`}
       title={organizeMode ? 'Drag to place · click to select rotation controls' : detailsDisplay === 'card' ? 'Click for book details' : 'Click to select'}
     >
+      {showsCoverArt && (
+        <img
+          className="shelf-cover-art"
+          src={coverUrl}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          onError={(event) => { event.currentTarget.style.display = 'none' }}
+        />
+      )}
       {book.owned && <span className="owned-dot" title="Owned" />}
-      <span className="spine-ornament">✦</span>
-      <span className="spine-title">{book.title}</span>
-      <span className="spine-author">{book.author}</span>
+      {(!frontCover || !coverUrl) && <span className="spine-ornament">✦</span>}
+      {(!frontCover || !coverUrl) && <span className="spine-title">{book.title}</span>}
+      {(!frontCover || !coverUrl) && <span className="spine-author">{book.author}</span>}
     </button>
   )
 }
