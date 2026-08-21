@@ -10,6 +10,8 @@ type BookOrientation = 'upright' | 'horizontal'
 type BookPlacement = {
   shelfIndex: number
   cubeColumn?: number
+  // X and Y are physical shelf coordinates in CSS pixels. Book dimensions are also pixels, so
+  // touching books stay touching when the surrounding layout grows or shrinks.
   x: number
   y: number
   angle: number
@@ -29,9 +31,9 @@ const filters: Array<{ value: ShelfFilter; label: string }> = [
 ]
 
 const cubeColumns = 3
-// v3 resets the old cube coordinates because v2 measured the outer cubby while books were
-// positioned inside the padded inner book area. That mismatch felt like an invisible collision box.
-const layoutProfilesKey = 'shelfie-layout-profiles-v3'
+// v4 switches X from percentage coordinates to physical shelf coordinates. Percentage X combined
+// with fixed-width books caused layouts to spread apart whenever the shelf viewport changed width.
+const layoutProfilesKey = 'shelfie-layout-profiles-v4'
 const snapDistance = 32
 const collisionTolerance = 3
 const packedBookGap = 1
@@ -60,12 +62,11 @@ function normalizePlacementMap(value: unknown): PlacementMap {
       && Number.isInteger(placement.shelfIndex)
       && placement.shelfIndex >= 0
       && (placement.cubeColumn === undefined || (Number.isInteger(placement.cubeColumn) && placement.cubeColumn >= 0 && placement.cubeColumn < cubeColumns))
-      && typeof placement.x === 'number'
+      && Number.isFinite(placement.x)
       && placement.x >= 0
-      && placement.x <= 1
-      && typeof placement.y === 'number'
+      && Number.isFinite(placement.y)
       && placement.y >= 0
-      && typeof placement.angle === 'number'
+      && Number.isFinite(placement.angle)
       && (placement.orientation === 'upright' || placement.orientation === 'horizontal')
     )),
   )
@@ -108,8 +109,6 @@ function stableBookVariation(book: Book) {
 
 function bookDimensions(book: Book, _index: number) {
   const pageWidthBoost = Math.min(12, Math.floor((book.pages || 0) / 180) * 2)
-  // Size must belong to the book, not its position. The old index-based variation meant moving a
-  // book could change the collision box by a few pixels after every reorder.
   const smallVariation = stableBookVariation(book)
 
   let height = 202 + smallVariation
@@ -177,10 +176,7 @@ function renderedDimensions(book: Book, index: number, orientation: BookOrientat
 }
 
 function defaultPlacement(index: number, shelfIndex: number, cubeColumn?: number): BookPlacement {
-  const x = cubeColumn === undefined
-    ? Math.min(.9, .012 + index * .065)
-    : Math.min(.82, .02 + index * .18)
-
+  const x = 8 + index * (cubeColumn === undefined ? 72 : 68)
   return { shelfIndex, cubeColumn, x, y: 0, angle: 0, orientation: 'upright' }
 }
 
@@ -220,7 +216,7 @@ function BookSpine({
         '--book-height': `${dimensions.height}px`,
         '--book-width': `${dimensions.width}px`,
         ...(placement ? {
-          '--book-x': `${placement.x * 100}%`,
+          '--book-x': `${placement.x}px`,
           '--book-y': `${placement.y}px`,
           '--book-rotation': `${placement.angle}deg`,
         } : {}),
@@ -372,17 +368,21 @@ export function FreeShelfView({
     return index % cubeColumns
   }
 
-  function buildOrganizeLayout(current: PlacementMap) {
-    const next: PlacementMap = { ...current }
+  function getShelfZones() {
     const zones = new Map<string, HTMLElement>()
-    const cursors = new Map<string, number>()
-
     document.querySelectorAll<HTMLElement>('[data-shelf-zone="true"]').forEach((zone) => {
       const shelfIndex = Number(zone.dataset.shelfIndex)
       if (!Number.isInteger(shelfIndex)) return
       const cubeColumn = zone.dataset.cubeColumn === undefined ? undefined : Number(zone.dataset.cubeColumn)
       zones.set(zoneKey(shelfIndex, Number.isInteger(cubeColumn) ? cubeColumn : undefined), zone)
     })
+    return zones
+  }
+
+  function buildOrganizeLayout(current: PlacementMap) {
+    const next: PlacementMap = { ...current }
+    const zones = getShelfZones()
+    const cursors = new Map<string, number>()
 
     profileBooks.forEach((book, index) => {
       const placement = next[book.id]
@@ -392,7 +392,9 @@ export function FreeShelfView({
       const key = zoneKey(shelfIndex, cubeColumn)
       const zoneWidth = zones.get(key)?.getBoundingClientRect().width ?? (shelfStyle === 'cube' ? 420 : 1200)
       const dims = renderedDimensions(book, index, placement.orientation)
-      const right = placement.x * zoneWidth + dims.width + packedBookGap
+      const safeLeft = clamp(placement.x, 0, Math.max(0, zoneWidth - dims.width))
+      next[book.id] = { ...placement, shelfIndex, cubeColumn, x: safeLeft }
+      const right = safeLeft + dims.width + packedBookGap
       cursors.set(key, Math.max(cursors.get(key) ?? 8, right))
     })
 
@@ -417,7 +419,7 @@ export function FreeShelfView({
       next[book.id] = {
         shelfIndex,
         cubeColumn,
-        x: zoneWidth ? left / zoneWidth : 0,
+        x: left,
         y: 0,
         angle: 0,
         orientation: 'upright',
@@ -429,6 +431,8 @@ export function FreeShelfView({
   }
 
   function initializeFreeLayout() {
+    // With physical X coordinates, measuring before the details panel disappears is safe: the books
+    // stay at the same physical positions when Organize Mode expands the shelf viewport.
     updateActiveProfile((current) => buildOrganizeLayout(current))
     setOrganizeMode(true)
   }
@@ -488,7 +492,7 @@ export function FreeShelfView({
       if (!otherPlacement) continue
       const otherIndex = getBookIndexInZone(other, shelfIndex, cubeColumn)
       const otherDims = renderedDimensions(other, otherIndex, otherPlacement.orientation)
-      const otherLeft = otherPlacement.x * rect.width
+      const otherLeft = otherPlacement.x
       snapCandidates.push(clamp(otherLeft + otherDims.width, 0, maxLeft))
       snapCandidates.push(clamp(otherLeft - dims.width, 0, maxLeft))
     }
@@ -504,7 +508,7 @@ export function FreeShelfView({
       if (!otherPlacement || otherPlacement.orientation !== 'horizontal') continue
       const otherIndex = getBookIndexInZone(other, shelfIndex, cubeColumn)
       const otherDims = renderedDimensions(other, otherIndex, otherPlacement.orientation)
-      const otherLeft = otherPlacement.x * rect.width
+      const otherLeft = otherPlacement.x
       if (horizontalOverlap(left, dims.width, otherLeft, otherDims.width) > 8) {
         supportY = Math.max(supportY, otherPlacement.y + otherDims.height)
       }
@@ -517,7 +521,7 @@ export function FreeShelfView({
       if (!otherPlacement) continue
       const otherIndex = getBookIndexInZone(other, shelfIndex, cubeColumn)
       const otherDims = renderedDimensions(other, otherIndex, otherPlacement.orientation)
-      const otherLeft = otherPlacement.x * rect.width
+      const otherLeft = otherPlacement.x
       const overlapX = horizontalOverlap(left, dims.width, otherLeft, otherDims.width)
       if (overlapX <= collisionTolerance) continue
 
@@ -533,7 +537,7 @@ export function FreeShelfView({
       bookId: book.id,
       shelfIndex,
       cubeColumn,
-      x: rect.width ? left / rect.width : 0,
+      x: left,
       y: supportY,
       angle: current.angle,
       orientation: current.orientation,
@@ -617,7 +621,7 @@ export function FreeShelfView({
       <div
         className={`placement-ghost ${placementPreview.valid ? 'valid' : 'invalid'} ${placementPreview.orientation === 'horizontal' ? 'horizontal' : ''}`}
         style={{
-          '--ghost-x': `${placementPreview.x * 100}%`,
+          '--ghost-x': `${placementPreview.x}px`,
           '--ghost-y': `${placementPreview.y}px`,
           '--ghost-width': `${dimensions.width}px`,
           '--ghost-height': `${dimensions.height}px`,
@@ -744,7 +748,7 @@ export function FreeShelfView({
         <section className="organize-mode-bar" aria-label="Shelf organization controls">
           <div>
             <strong>Organizing {activeStyleName} · {activeFilterLabel}</strong>
-            <span>Drag books using their real rendered size. Cube collisions now use the same inner shelf area the books are actually positioned inside.</span>
+            <span>Books now use one physical coordinate system for position, size, snapping, and collision. Drag near another book to place it flush against the visible edge.</span>
           </div>
           {activeBook ? (
             <div className="book-transform-controls" aria-label={`Position controls for ${activeBook.title}`}>
