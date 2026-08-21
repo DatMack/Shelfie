@@ -1,11 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { BookOpen, Check, LoaderCircle, LockKeyhole, LogOut, Mail, Sparkles } from 'lucide-react'
+import { BookOpen, Check, LoaderCircle, LockKeyhole, Mail, Sparkles } from 'lucide-react'
 import { App } from '../App'
 import { getSession, resendConfirmationEmail, signInWithEmail, signOut, signUpWithEmail } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { DailyQuestBoard } from './DailyQuestBoard'
-import { ReaderProgressCard } from './ReaderProgressCard'
 
 type AuthMode = 'signin' | 'signup'
 
@@ -56,16 +54,7 @@ export function AuthGate() {
 
   if (!session) return <WelcomeScreen onAuthenticated={setSession} />
 
-  return (
-    <>
-      <App />
-      <button className="auth-signout-chip" type="button" onClick={() => void handleSignOut()}>
-        <LogOut size={15} /> Sign out
-      </button>
-      <ReaderProgressCard />
-      <DailyQuestBoard />
-    </>
-  )
+  return <App onSignOut={handleSignOut} />
 }
 
 function WelcomeScreen({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
