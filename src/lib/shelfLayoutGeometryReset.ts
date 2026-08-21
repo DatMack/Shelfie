@@ -1,8 +1,7 @@
 // One-time test cleanup for the corrected physical-coordinate organizer.
-// Earlier v4 layouts could be written while the geometry engine was still changing, and an older
-// reset marker may already exist in the browser. Bump the marker so every tester gets one genuinely
-// clean layout after the final pixel-coordinate + shelf-width fixes.
-const resetMarker = 'shelfie-layout-pixel-geometry-reset-v2'
+// v4 layouts created before the centered drag-anchor fix can preserve the exact bad positions from
+// testing, so bump the marker once more and rebuild only organizer coordinates from a clean state.
+const resetMarker = 'shelfie-layout-pixel-geometry-reset-v3'
 
 try {
   if (localStorage.getItem(resetMarker) !== 'done') {
