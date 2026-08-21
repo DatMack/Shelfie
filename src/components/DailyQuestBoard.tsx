@@ -10,7 +10,7 @@ function QuestIcon({ event }: { event: DailyQuestEvent }) {
 }
 
 export function DailyQuestBoard() {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const questSet = useMemo(() => buildDailyQuestSet(sampleBooks), [])
 
   return (
@@ -23,7 +23,7 @@ export function DailyQuestBoard() {
             <strong>Fresh every day</strong>
           </div>
         </div>
-        {open ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+        {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
       </button>
 
       {open && (
