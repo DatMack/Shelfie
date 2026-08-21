@@ -11,6 +11,7 @@ import './bookDetailsDisplay.css'
 import './welcome.css'
 import './authSession.css'
 import './libraryFreedom.css'
+import './shelfClippingFix.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
