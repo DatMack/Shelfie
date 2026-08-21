@@ -36,6 +36,7 @@ export async function loadMyLibrary(userId: string) {
     .from('user_books')
     .select('*, book:books(*, book_market_values(*))')
     .eq('user_id', userId)
+    .order('shelf_index', { ascending: true })
     .order('shelf_position', { ascending: true })
     .order('created_at', { ascending: true })
 
@@ -114,6 +115,7 @@ export async function addCatalogBookToMyShelf({
       user_id: userId,
       book_id: bookId,
       status: statusToDatabase(status),
+      shelf_index: 0,
       owned,
       format: owned ? formatToDatabase(format) : null,
     })
@@ -138,7 +140,7 @@ export async function updateMyBook(userBookId: string, patch: Record<string, unk
 }
 
 export async function saveShelfOrder(
-  items: Array<{ userBookId: string; status: ReadingStatus; shelfPosition: number }>,
+  items: Array<{ userBookId: string; shelfIndex: number; shelfPosition: number }>,
 ) {
   const client = requireSupabase()
   const updates = await Promise.all(
@@ -146,7 +148,7 @@ export async function saveShelfOrder(
       client
         .from('user_books')
         .update({
-          status: statusToDatabase(item.status),
+          shelf_index: item.shelfIndex,
           shelf_position: item.shelfPosition,
         })
         .eq('id', item.userBookId),
