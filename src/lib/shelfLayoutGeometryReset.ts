@@ -1,12 +1,15 @@
-// One-time test cleanup: early v4 layouts were saved before the final pixel-coordinate geometry
-// fixes landed. Keeping those coordinates makes the corrected organizer look broken because it is
-// faithfully restoring bad positions. Remove them once, then let v4 rebuild cleanly.
-const layoutKey = 'shelfie-layout-profiles-v4'
-const resetMarker = 'shelfie-layout-pixel-geometry-reset-v1'
+// One-time test cleanup for the corrected physical-coordinate organizer.
+// Earlier v4 layouts could be written while the geometry engine was still changing, and an older
+// reset marker may already exist in the browser. Bump the marker so every tester gets one genuinely
+// clean layout after the final pixel-coordinate + shelf-width fixes.
+const resetMarker = 'shelfie-layout-pixel-geometry-reset-v2'
 
 try {
   if (localStorage.getItem(resetMarker) !== 'done') {
-    localStorage.removeItem(layoutKey)
+    localStorage.removeItem('shelfie-layout-profiles-v4')
+    localStorage.removeItem('shelfie-layout-profiles-v3')
+    localStorage.removeItem('shelfie-layout-profiles-v2')
+    localStorage.removeItem('shelfie-free-placement-v1')
     localStorage.setItem(resetMarker, 'done')
   }
 } catch {
