@@ -7,6 +7,9 @@ export type BookSearchResult = {
   pages?: number
   isbn?: string
   genre?: string
+  subjects?: string[]
+  publisher?: string
+  language?: string
 }
 
 type OpenLibraryDoc = {
@@ -18,6 +21,8 @@ type OpenLibraryDoc = {
   number_of_pages_median?: number
   isbn?: string[]
   subject?: string[]
+  publisher?: string[]
+  language?: string[]
 }
 
 type OpenLibraryResponse = {
@@ -30,8 +35,8 @@ export async function searchOpenLibrary(term: string): Promise<BookSearchResult[
 
   const params = new URLSearchParams({
     q: query,
-    limit: '12',
-    fields: 'key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,subject',
+    limit: '18',
+    fields: 'key,title,author_name,cover_i,first_publish_year,number_of_pages_median,isbn,subject,publisher,language',
   })
 
   const response = await fetch(`https://openlibrary.org/search.json?${params.toString()}`)
@@ -50,5 +55,8 @@ export async function searchOpenLibrary(term: string): Promise<BookSearchResult[
       pages: doc.number_of_pages_median,
       isbn: doc.isbn?.[0],
       genre: doc.subject?.[0],
+      subjects: doc.subject?.slice(0, 12),
+      publisher: doc.publisher?.[0],
+      language: doc.language?.[0],
     }))
 }
