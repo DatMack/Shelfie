@@ -10,7 +10,6 @@ import {
   type SiteThemeId,
   type UnlockableCustomization,
 } from '../data/customization'
-import { getLevelForXp } from '../data/progression'
 import {
   loadShelfCountForStyle,
   loadShelfFinish,
@@ -22,6 +21,7 @@ import {
   saveShelfStyle,
   saveSiteTheme,
 } from '../lib/customizationRuntime'
+import { useTestingProgression } from '../lib/testingAccess'
 
 type BookDetailsDisplay = 'side' | 'card'
 
@@ -40,8 +40,6 @@ type SettingsPageProps = {
   onSignOut?: () => void | Promise<void>
 }
 
-const previewLevel = getLevelForXp(980).level
-
 export function SettingsPage({
   largeText,
   highContrast,
@@ -59,6 +57,7 @@ export function SettingsPage({
   const [shelfStyle, setShelfStyle] = useState<ShelfStyleId>(loadShelfStyle)
   const [shelfFinish, setShelfFinish] = useState<ShelfFinishId>(loadShelfFinish)
   const [siteTheme, setSiteTheme] = useState<SiteThemeId>(loadSiteTheme)
+  const { currentLevel, isMaxLevelTester } = useTestingProgression()
 
   function chooseShelfStyle(value: ShelfStyleId) {
     saveShelfCountForStyle(shelfStyle, shelfCount)
@@ -100,8 +99,8 @@ export function SettingsPage({
       <section className="earned-customization-banner">
         <Crown size={22} />
         <div>
-          <strong>Earned, never purchased.</strong>
-          <span>Every Shelfie theme, shelf, finish, decoration, and visual reward is unlocked by reading, levels, streaks, or achievements. There is no paid shortcut.</span>
+          <strong>{isMaxLevelTester ? 'Max-level tester mode.' : 'Earned, never purchased.'}</strong>
+          <span>{isMaxLevelTester ? 'This test account is temporarily Level 100 so every level-gated Shelfie customization can be tested.' : 'Every Shelfie theme, shelf, finish, decoration, and visual reward is unlocked by reading, levels, streaks, or achievements. There is no paid shortcut.'}</span>
         </div>
       </section>
 
@@ -110,7 +109,7 @@ export function SettingsPage({
           <LayoutGrid size={20} />
           <div><h3>Bookshelf layout</h3><p>Choose the structure of your library. Each shelf style remembers its own setup.</p></div>
         </div>
-        <CustomizationGrid items={shelfStyles} value={shelfStyle} currentLevel={previewLevel} onChange={chooseShelfStyle} />
+        <CustomizationGrid items={shelfStyles} value={shelfStyle} currentLevel={currentLevel} onChange={chooseShelfStyle} />
         <div className="shelf-count-setting">
           <div><strong>Number of shelves</strong><span>Saved with this shelf style, so Cube, Classic, Floating, and future styles can all be built differently.</span></div>
           <div className="shelf-count-controls" aria-label="Number of shelves">
@@ -127,7 +126,7 @@ export function SettingsPage({
           <Sparkles size={20} />
           <div><h3>Shelf material & finish</h3><p>This finish is saved to the current shelf style. Higher-level finishes become visual trophies for your reading progress.</p></div>
         </div>
-        <CustomizationGrid items={shelfFinishes} value={shelfFinish} currentLevel={previewLevel} onChange={chooseShelfFinish} />
+        <CustomizationGrid items={shelfFinishes} value={shelfFinish} currentLevel={currentLevel} onChange={chooseShelfFinish} />
       </section>
 
       <section className="settings-section">
@@ -135,8 +134,8 @@ export function SettingsPage({
           <Palette size={20} />
           <div><h3>Shelfie color profile</h3><p>Re-theme the entire site — navigation, backgrounds, controls, highlights, and reading atmosphere.</p></div>
         </div>
-        <CustomizationGrid items={siteThemes} value={siteTheme} currentLevel={previewLevel} onChange={chooseSiteTheme} />
-        <div className="settings-tip"><LockKeyhole size={17} /><span>Your current demo level is {previewLevel}. Locked cards show exactly when they become available. Real account XP will replace this preview level when progression is connected.</span></div>
+        <CustomizationGrid items={siteThemes} value={siteTheme} currentLevel={currentLevel} onChange={chooseSiteTheme} />
+        <div className="settings-tip"><LockKeyhole size={17} /><span>{isMaxLevelTester ? 'Tester override is active at Level 100. All current level-gated cards are unlocked so you can test the full progression catalog.' : `Your current demo level is ${currentLevel}. Locked cards show exactly when they become available. Real account XP will replace this preview level when progression is connected.`}</span></div>
       </section>
 
       <section className="settings-section">
