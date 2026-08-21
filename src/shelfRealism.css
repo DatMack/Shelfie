@@ -1,0 +1,342 @@
+/* Shelf realism pass: true cubbies, format-aware book sizes, and future decor placement zones. */
+
+.freeform-bookcase {
+  overflow: visible;
+}
+
+/* Book sizes now use the per-format dimensions supplied by FreeShelfView. */
+.freeform-bookcase .book-spine {
+  flex: 0 0 var(--book-width, 72px);
+  width: var(--book-width, 72px);
+  min-width: var(--book-width, 72px);
+  height: var(--book-height, 205px);
+}
+
+.freeform-bookcase .book-format-hardcover {
+  border-radius: 6px 6px 2px 2px;
+  box-shadow:
+    inset 3px 0 2px rgba(255,255,255,.075),
+    inset -5px 0 9px rgba(0,0,0,.3),
+    0 7px 11px rgba(0,0,0,.34);
+}
+
+.freeform-bookcase .book-format-paperback,
+.freeform-bookcase .book-format-mass-market {
+  border-radius: 3px 4px 2px 2px;
+  box-shadow:
+    inset 1px 0 1px rgba(255,255,255,.055),
+    inset -3px 0 7px rgba(0,0,0,.22),
+    0 5px 8px rgba(0,0,0,.28);
+}
+
+/* Reserve a real surface above framed bookcases for future earned decor. */
+.bookcase-top-decor {
+  min-height: 76px;
+  margin: 0 18px -1px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 15px;
+  padding: 0 22px 8px;
+  position: relative;
+  border-bottom: 9px solid var(--shelf-frame-top);
+  filter: drop-shadow(0 8px 7px rgba(0,0,0,.38));
+}
+
+.bookcase-top-decor::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: color-mix(in srgb, var(--shelf-edge) 55%, transparent);
+}
+
+/* These low-key objects are only a spatial preview. They will become real draggable unlocks later. */
+.decor-preview-stack {
+  width: 78px;
+  display: grid;
+  align-content: end;
+  gap: 3px;
+  opacity: .68;
+}
+
+.decor-preview-stack i {
+  height: 9px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 2px;
+  background: linear-gradient(90deg, #633a2e, #9a6848);
+  box-shadow: 0 3px 5px rgba(0,0,0,.28);
+}
+
+.decor-preview-stack i:nth-child(2) {
+  width: 88%;
+  justify-self: end;
+  background: linear-gradient(90deg, #2e4754, #557384);
+}
+
+.decor-preview-stack i:nth-child(3) {
+  width: 72%;
+  background: linear-gradient(90deg, #5d5231, #8c7946);
+}
+
+.decor-preview-mug {
+  width: 30px;
+  height: 34px;
+  position: relative;
+  border: 2px solid rgba(218,201,174,.42);
+  border-radius: 4px 4px 9px 9px;
+  background: rgba(83,72,60,.55);
+  opacity: .72;
+}
+
+.decor-preview-mug::after {
+  content: "";
+  position: absolute;
+  right: -11px;
+  top: 7px;
+  width: 11px;
+  height: 15px;
+  border: 2px solid rgba(218,201,174,.4);
+  border-left: 0;
+  border-radius: 0 9px 9px 0;
+}
+
+.decor-preview-plant {
+  width: 48px;
+  height: 54px;
+  position: relative;
+  opacity: .72;
+}
+
+.decor-preview-plant span {
+  position: absolute;
+  left: 10px;
+  right: 7px;
+  bottom: 0;
+  height: 22px;
+  border-radius: 4px 4px 8px 8px;
+  background: linear-gradient(90deg, #60442f, #8b6546);
+  box-shadow: 0 4px 7px rgba(0,0,0,.25);
+}
+
+.decor-preview-plant i,
+.decor-preview-plant::before,
+.decor-preview-plant::after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 30px;
+  bottom: 18px;
+  border-radius: 100% 0 100% 0;
+  background: #42543c;
+  transform-origin: bottom center;
+}
+
+.decor-preview-plant i { left: 15px; transform: rotate(-8deg); }
+.decor-preview-plant::before { left: 5px; transform: rotate(-38deg); }
+.decor-preview-plant::after { right: 1px; transform: scaleX(-1) rotate(-32deg); }
+
+/* Narrow side rails reserve future positions for vines, signs, charms, lights, etc. */
+.bookcase-stage {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) 25px;
+  align-items: stretch;
+}
+
+.bookcase-stage > .bookcase-frame {
+  min-width: 0;
+}
+
+.bookcase-side-decor {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  color: color-mix(in srgb, var(--shelf-edge) 62%, transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--shelf-frame) 38%, transparent));
+  opacity: .55;
+}
+
+.side-decor-right {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--shelf-frame) 38%, transparent), transparent);
+}
+
+.bookcase-side-decor span {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed currentColor;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+/* True cube shelf: real independent cubbies rather than divider lines on a normal row. */
+.shelf-style-cube.shelf-finish-starter-wood {
+  --shelf-frame: #181513;
+  --shelf-frame-top: #27221f;
+  --shelf-frame-bottom: #0b0a09;
+  --shelf-face-top: #302a26;
+  --shelf-face-mid: #1b1816;
+  --shelf-face-bottom: #090807;
+  --shelf-edge: #5a5049;
+  --shelf-cavity: #0b0a09;
+  --shelf-shell: #171412;
+}
+
+.shelf-style-cube.bookcase {
+  padding: 14px;
+  border-radius: 9px;
+}
+
+.shelf-style-cube .cube-bookcase-frame {
+  border: 16px solid var(--shelf-frame);
+  border-top-color: var(--shelf-frame-top);
+  border-bottom-color: var(--shelf-frame-bottom);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--shelf-cavity);
+  box-shadow:
+    inset 0 0 32px rgba(0,0,0,.74),
+    0 12px 25px rgba(0,0,0,.22);
+}
+
+.cube-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--shelf-frame);
+}
+
+.cube-cell {
+  min-width: 0;
+  min-height: 278px;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-right: 16px solid var(--shelf-frame);
+  border-bottom: 16px solid var(--shelf-frame);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255,255,255,.018), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--shelf-cavity) 92%, white 2%), var(--shelf-cavity));
+  box-shadow: inset 0 10px 20px rgba(0,0,0,.24), inset 0 -5px 10px rgba(0,0,0,.35);
+}
+
+.cube-cell.cube-last-column { border-right: 0; }
+.cube-cell.cube-last-row { border-bottom: 0; }
+
+.cube-cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7px;
+  z-index: 1;
+  background: linear-gradient(180deg, var(--shelf-frame-top), var(--shelf-frame-bottom));
+  box-shadow: 0 -2px 5px rgba(0,0,0,.42);
+}
+
+.cube-books {
+  width: 100%;
+  min-width: 0;
+  min-height: 278px;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  padding: 34px 11px 7px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--shelf-edge) 45%, transparent) transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.cube-books .book-spine {
+  max-height: 230px;
+}
+
+.cube-books .book-spine:hover,
+.cube-books .book-spine:focus-visible,
+.cube-books .book-spine.selected {
+  transform: translateY(-7px) scale(1.02);
+}
+
+.cube-empty {
+  width: 100%;
+  align-self: center;
+  text-align: center;
+  color: color-mix(in srgb, var(--shelf-edge) 42%, transparent);
+  font-family: Georgia, serif;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.cube-drop-active {
+  background:
+    linear-gradient(180deg, rgba(213,158,73,.09), transparent 65%),
+    var(--shelf-cavity);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--shelf-edge) 55%, transparent);
+}
+
+/* Floating shelves have no furniture body, so top/side furniture decor slots do not apply. */
+.shelf-style-floating .bookcase-stage {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+.shelf-style-floating .bookcase-side-decor {
+  display: none;
+}
+
+/* Slightly more breathing room for mixed real-world book heights on long shelves. */
+.freeform-bookcase:not(.shelf-style-cube) .books {
+  min-height: 238px;
+  padding-top: 24px;
+}
+
+.freeform-bookcase:not(.shelf-style-cube) .shelf-row {
+  min-height: 278px;
+}
+
+@media (max-width: 900px) {
+  .bookcase-stage {
+    grid-template-columns: 16px minmax(0, 1fr) 16px;
+  }
+
+  .bookcase-top-decor {
+    min-height: 62px;
+    padding-inline: 10px;
+  }
+
+  .cube-cell,
+  .cube-books {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 650px) {
+  .cube-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cube-cell,
+  .cube-cell.cube-last-column {
+    border-right: 0;
+    border-bottom: 12px solid var(--shelf-frame);
+  }
+
+  .cube-cell.cube-last-row.cube-last-column {
+    border-bottom: 0;
+  }
+
+  .bookcase-side-decor {
+    display: none;
+  }
+
+  .bookcase-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
