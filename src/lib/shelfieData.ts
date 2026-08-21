@@ -171,15 +171,26 @@ export async function findOrCreateCatalogBook(result: BookSearchResult) {
       isbn10: compactIsbn?.length === 10 ? compactIsbn : null,
       isbn13: compactIsbn?.length === 13 ? compactIsbn : null,
       title: result.title,
+      subtitle: result.subtitle ?? null,
       authors: result.author === 'Unknown author' ? [] : result.author.split(',').map((author) => author.trim()),
+      description: result.description ?? null,
       cover_url: result.coverUrl ?? null,
       publisher: result.publisher ?? null,
+      published_date: result.publishedDate ?? null,
       publication_year: result.year ?? null,
       page_count: result.pages ?? null,
       genres: result.genre ? [result.genre] : [],
       subjects: result.subjects ?? [],
       language: result.language ?? null,
-      metadata: { imported_from: 'openlibrary' },
+      metadata: {
+        imported_from: 'openlibrary',
+        google_volume_id: result.googleVolumeId ?? null,
+        google_books_info_link: result.infoLink ?? null,
+        google_books_preview_link: result.previewLink ?? null,
+        google_books_saleability: result.saleability ?? null,
+        google_books_retail_price: result.retailPrice ?? null,
+        google_books_currency: result.currencyCode ?? null,
+      },
     })
     .select('*')
     .single()
@@ -321,6 +332,49 @@ export async function updateMyBook(userBookId: string, patch: Record<string, unk
 
   if (error) throw error
   return data
+}
+
+export async function deleteMyBook(userBookId: string) {
+  const client = requireSupabase()
+  const { error } = await client.from('user_books').delete().eq('id', userBookId)
+  if (error) throw error
+}
+
+export type ShelfieProfile = {
+  id: string
+  username: string
+  displayName?: string
+  avatarUrl?: string
+  bio?: string
+}
+
+export async function loadMyProfile(): Promise<ShelfieProfile> {
+  const client = requireSupabase()
+  const { data, error } = await client.from('profiles').select('id, username, display_name, avatar_url, bio').single()
+  if (error) throw error
+  return {
+    id: data.id,
+    username: data.username,
+    displayName: data.display_name ?? undefined,
+    avatarUrl: data.avatar_url ?? undefined,
+    bio: data.bio ?? undefined,
+  }
+}
+
+export async function uploadProfilePicture(file: File) {
+  const client = requireSupabase()
+  const { data: { user }, error: authError } = await client.auth.getUser()
+  if (authError || !user) throw authError ?? new Error('Sign in to upload a profile picture.')
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const path = `${user.id}/avatar-${Date.now()}.${extension}`
+  const { error } = await client.storage.from('profile-pictures').upload(path, file, {
+    cacheControl: '3600', contentType: file.type || 'image/jpeg', upsert: true,
+  })
+  if (error) throw error
+  const { data } = client.storage.from('profile-pictures').getPublicUrl(path)
+  const { error: updateError } = await client.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id)
+  if (updateError) throw updateError
+  return data.publicUrl
 }
 
 export async function saveShelfOrder(

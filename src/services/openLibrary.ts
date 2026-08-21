@@ -13,6 +13,16 @@ export type BookSearchResult = {
   publisher?: string
   language?: string
   editionKeys?: string[]
+  description?: string
+  subtitle?: string
+  publishedDate?: string
+  googleVolumeId?: string
+  retailPrice?: number
+  currencyCode?: string
+  buyLink?: string
+  previewLink?: string
+  infoLink?: string
+  saleability?: string
 }
 
 type OpenLibraryDoc = {

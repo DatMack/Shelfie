@@ -25,6 +25,8 @@ import './shelfHoverCard.css'
 import './shelfGeometryFix.css'
 import './shelfApiGeometryDebug.css'
 import './customSpines.css'
+import './profileDrawer.css'
+import './libraryTools.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
