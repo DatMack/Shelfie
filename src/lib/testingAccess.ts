@@ -39,9 +39,24 @@ export function useTestingProgression() {
   useEffect(() => {
     let active = true
 
-    supabase?.auth.getSession().then(({ data }) => {
-      if (active) setProgression(progressionFor(data.session?.user.email))
-    })
+    async function refreshTesterStatus() {
+      if (!supabase) return
+
+      try {
+        const [{ data: sessionData }, { data: userData }] = await Promise.all([
+          supabase.auth.getSession(),
+          supabase.auth.getUser(),
+        ])
+
+        if (!active) return
+        const email = userData.user?.email ?? sessionData.session?.user.email ?? null
+        setProgression(progressionFor(email))
+      } catch {
+        if (active) setProgression(progressionFor(null))
+      }
+    }
+
+    void refreshTesterStatus()
 
     const listener = supabase?.auth.onAuthStateChange((_event, session) => {
       if (active) setProgression(progressionFor(session?.user.email))
