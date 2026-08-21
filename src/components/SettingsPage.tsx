@@ -12,10 +12,13 @@ import {
 } from '../data/customization'
 import { getLevelForXp } from '../data/progression'
 import {
+  loadShelfCountForStyle,
   loadShelfFinish,
+  loadShelfFinishForStyle,
   loadShelfStyle,
   loadSiteTheme,
-  saveShelfFinish,
+  saveShelfCountForStyle,
+  saveShelfFinishForStyle,
   saveShelfStyle,
   saveSiteTheme,
 } from '../lib/customizationRuntime'
@@ -58,13 +61,24 @@ export function SettingsPage({
   const [siteTheme, setSiteTheme] = useState<SiteThemeId>(loadSiteTheme)
 
   function chooseShelfStyle(value: ShelfStyleId) {
-    setShelfStyle(value)
+    saveShelfCountForStyle(shelfStyle, shelfCount)
     saveShelfStyle(value)
+    const nextFinish = loadShelfFinishForStyle(value)
+    const nextCount = loadShelfCountForStyle(value, 3)
+    setShelfStyle(value)
+    setShelfFinish(nextFinish)
+    onShelfCountChange(nextCount)
   }
 
   function chooseShelfFinish(value: ShelfFinishId) {
     setShelfFinish(value)
-    saveShelfFinish(value)
+    saveShelfFinishForStyle(shelfStyle, value)
+  }
+
+  function changeShelfCount(value: number) {
+    const next = Math.max(2, Math.min(6, value))
+    saveShelfCountForStyle(shelfStyle, next)
+    onShelfCountChange(next)
   }
 
   function chooseSiteTheme(value: SiteThemeId) {
@@ -94,24 +108,24 @@ export function SettingsPage({
       <section className="settings-section">
         <div className="settings-section-heading">
           <LayoutGrid size={20} />
-          <div><h3>Bookshelf layout</h3><p>Choose the structure of your library. The three starter layouts are available to everyone.</p></div>
+          <div><h3>Bookshelf layout</h3><p>Choose the structure of your library. Each shelf style remembers its own setup.</p></div>
         </div>
         <CustomizationGrid items={shelfStyles} value={shelfStyle} currentLevel={previewLevel} onChange={chooseShelfStyle} />
         <div className="shelf-count-setting">
-          <div><strong>Number of shelves</strong><span>Choose how many physical shelf rows appear in your bookcase.</span></div>
+          <div><strong>Number of shelves</strong><span>Saved with this shelf style, so Cube, Classic, Floating, and future styles can all be built differently.</span></div>
           <div className="shelf-count-controls" aria-label="Number of shelves">
-            <button type="button" onClick={() => onShelfCountChange(shelfCount - 1)} disabled={shelfCount <= 2} aria-label="Remove a shelf">−</button>
+            <button type="button" onClick={() => changeShelfCount(shelfCount - 1)} disabled={shelfCount <= 2} aria-label="Remove a shelf">−</button>
             <strong>{shelfCount}</strong>
-            <button type="button" onClick={() => onShelfCountChange(shelfCount + 1)} disabled={shelfCount >= 6} aria-label="Add a shelf">+</button>
+            <button type="button" onClick={() => changeShelfCount(shelfCount + 1)} disabled={shelfCount >= 6} aria-label="Add a shelf">+</button>
           </div>
         </div>
-        <div className="settings-tip"><LayoutGrid size={17} /><span>Book placement stays separate from reading status. Arrange the shelf however you want, then use All, Reading, To Read, Read, or DNF to filter it.</span></div>
+        <div className="settings-tip"><LayoutGrid size={17} /><span>Each shelf style remembers its finish and shelf count. Inside that style, All, Reading, To Read, Read, and DNF can each have their own independently arranged showcase.</span></div>
       </section>
 
       <section className="settings-section">
         <div className="settings-section-heading">
           <Sparkles size={20} />
-          <div><h3>Shelf material & finish</h3><p>Change what the shelf is made from. Higher-level finishes become visual trophies for your reading progress.</p></div>
+          <div><h3>Shelf material & finish</h3><p>This finish is saved to the current shelf style. Higher-level finishes become visual trophies for your reading progress.</p></div>
         </div>
         <CustomizationGrid items={shelfFinishes} value={shelfFinish} currentLevel={previewLevel} onChange={chooseShelfFinish} />
       </section>
