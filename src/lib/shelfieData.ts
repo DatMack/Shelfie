@@ -34,7 +34,7 @@ export async function loadMyLibrary(userId: string) {
   const client = requireSupabase()
   const { data, error } = await client
     .from('user_books')
-    .select('*, book:books(*), market_values:book_id(book_market_values(*))')
+    .select('*, book:books(*, book_market_values(*))')
     .eq('user_id', userId)
     .order('created_at', { ascending: true })
 
