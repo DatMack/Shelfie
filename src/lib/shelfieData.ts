@@ -36,6 +36,7 @@ export async function loadMyLibrary(userId: string) {
     .from('user_books')
     .select('*, book:books(*, book_market_values(*))')
     .eq('user_id', userId)
+    .order('shelf_position', { ascending: true })
     .order('created_at', { ascending: true })
 
   if (error) throw error
@@ -134,6 +135,26 @@ export async function updateMyBook(userBookId: string, patch: Record<string, unk
 
   if (error) throw error
   return data
+}
+
+export async function saveShelfOrder(
+  items: Array<{ userBookId: string; status: ReadingStatus; shelfPosition: number }>,
+) {
+  const client = requireSupabase()
+  const updates = await Promise.all(
+    items.map((item) =>
+      client
+        .from('user_books')
+        .update({
+          status: statusToDatabase(item.status),
+          shelf_position: item.shelfPosition,
+        })
+        .eq('id', item.userBookId),
+    ),
+  )
+
+  const failed = updates.find((result) => result.error)
+  if (failed?.error) throw failed.error
 }
 
 export async function recordRecommendationFeedback({
