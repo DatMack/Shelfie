@@ -79,6 +79,12 @@
   z-index: 3;
 }
 
+/* Organize Mode and the renderer must agree on the exact same book box. The older Cube rule
+   capped visual height at 230px while collision math still used the full metadata-derived height. */
+.cube-books .book-spine {
+  max-height: none;
+}
+
 /* When a face-out book is laid flat, keep the art contained instead of stretching outside the stack. */
 .free-layout-zone .book-front-cover.book-horizontal .shelf-cover-art {
   object-fit: cover;
