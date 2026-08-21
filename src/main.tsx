@@ -8,6 +8,7 @@ import './future.css'
 import './readerProgress.css'
 import './dailyQuests.css'
 import './dragDrop.css'
+import './shelfAppearance.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
