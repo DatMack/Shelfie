@@ -5,20 +5,26 @@ const steps = [
   {
     icon: <BookOpen size={24} />,
     eyebrow: 'YOUR SHELF, YOUR WAY',
-    title: 'Put any book on any shelf.',
-    body: 'Shelf position no longer decides reading status. Drag books left, right, or between shelf rows just to arrange your library the way you like.',
+    title: 'Arrange it like a real bookshelf.',
+    body: 'Use Organize Shelf when you want to move things. Drag books freely, squeeze them together, move them between shelves or cubbies, and use the placement preview to see where a book can safely land.',
+  },
+  {
+    icon: <LayoutGrid size={24} />,
+    eyebrow: 'LEAN, STACK & PLACE',
+    title: 'Books do not have to stand perfectly straight.',
+    body: 'Select a book in Organize Mode to lean it left or right, stand it upright, or lay it flat. Shelfie applies simple gravity and collision rules so books rest on the shelf or on a supported horizontal stack instead of floating.',
   },
   {
     icon: <LayoutGrid size={24} />,
     eyebrow: 'FILTER WITHOUT REARRANGING',
     title: 'Switch between reading views.',
-    body: 'Use All, Currently Reading, Want to Read, Read, and DNF above the bookcase. A filter only changes what you see — your custom shelf arrangement stays untouched.',
+    body: 'Use All, Reading, To Read, Read, and DNF above the bookcase. A filter only changes what you see — your custom shelf arrangement stays untouched.',
   },
   {
     icon: <BookOpen size={24} />,
     eyebrow: 'EVERY BOOK HAS A HOME BASE',
     title: 'Click a book for everything about it.',
-    body: 'Change reading status, track progress, mark ownership, choose how it looks on the shelf, and later pick the exact edition or cover you want displayed.',
+    body: 'Outside Organize Mode, click a book to change reading status, track progress, mark ownership, choose how it looks on the shelf, and later pick the exact edition or cover you want displayed.',
   },
   {
     icon: <Sparkles size={24} />,
@@ -30,7 +36,7 @@ const steps = [
     icon: <Settings2 size={24} />,
     eyebrow: 'NOTHING SHOULD BE HIDDEN',
     title: 'Settings explains the controls.',
-    body: 'Display choices, accessibility, shelf count, help, and account actions are grouped on one Settings page. You can replay this walkthrough there whenever you want.',
+    body: 'Shelf styles, materials, color profiles, display choices, accessibility, shelf count, help, and account actions are grouped on one Settings page. You can replay this walkthrough there whenever you want.',
   },
 ]
 
