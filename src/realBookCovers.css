@@ -1,9 +1,21 @@
 /* Real book art from Open Library. Physical dimensions still come from the user's format choice. */
 
+/* Cover art needs a positioned book box, but Organize Mode itself owns the book's positioning.
+   The previous rule set every book to position: relative after organizeShelf.css had set free books
+   to position: absolute. Because this file loads later with equal specificity, it silently won and
+   caused Organize Mode to apply saved X coordinates on top of the normal flex position. */
 .freeform-bookcase .book-spine {
-  position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+
+.freeform-bookcase .book-spine:not(.free-placed-book) {
+  position: relative;
+}
+
+/* A free-placed book is its own positioned containing block, so its cover image still anchors to it. */
+.freeform-bookcase .free-layout-zone .free-placed-book {
+  position: absolute;
 }
 
 /* Shelf books are visual objects now. Metadata lives in the hover card instead of being printed over the art. */
@@ -24,11 +36,10 @@
   z-index: 0;
 }
 
-/* Crop the real cover into a believable wrapped-spine texture without extra test lettering. */
+/* The public cover image is a front cover, not a spine scan. Spine mode stays clean; face-out mode
+   below is the only place where the actual cover is intentionally shown. */
 .book-has-cover-art:not(.book-front-cover) .shelf-cover-art {
-  object-position: 50% center;
-  opacity: .72;
-  filter: saturate(.9) brightness(.72) contrast(1.1);
+  display: none;
 }
 
 .book-has-cover-art:not(.book-front-cover) {
@@ -54,6 +65,7 @@
 }
 
 .book-front-cover .shelf-cover-art {
+  display: block;
   opacity: 1;
   object-fit: cover;
   object-position: center;
@@ -79,8 +91,7 @@
   z-index: 3;
 }
 
-/* Organize Mode and the renderer must agree on the exact same book box. The older Cube rule
-   capped visual height at 230px while collision math still used the full metadata-derived height. */
+/* Organize Mode and the renderer must agree on the exact same book box. */
 .cube-books .book-spine {
   max-height: none;
 }
@@ -88,10 +99,4 @@
 /* When a face-out book is laid flat, keep the art contained instead of stretching outside the stack. */
 .free-layout-zone .book-front-cover.book-horizontal .shelf-cover-art {
   object-fit: cover;
-}
-
-@media (max-width: 650px) {
-  .book-has-cover-art:not(.book-front-cover) .shelf-cover-art {
-    opacity: .58;
-  }
 }
