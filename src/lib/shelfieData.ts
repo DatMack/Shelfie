@@ -163,6 +163,40 @@ export async function saveShelfOrder(
   if (failed?.error) throw failed.error
 }
 
+export async function saveShelfArrangement(
+  items: Array<{
+    userBookId: string
+    shelfIndex: number
+    shelfColumn: number
+    shelfPosition: number
+    shelfX: number
+    shelfY: number
+    shelfRotation: number
+    shelfOrientation: 'upright' | 'horizontal'
+  }>,
+) {
+  const client = requireSupabase()
+  const updates = await Promise.all(
+    items.map((item) =>
+      client
+        .from('user_books')
+        .update({
+          shelf_index: item.shelfIndex,
+          shelf_column: item.shelfColumn,
+          shelf_position: item.shelfPosition,
+          shelf_x: item.shelfX,
+          shelf_y: item.shelfY,
+          shelf_rotation: item.shelfRotation,
+          shelf_orientation: item.shelfOrientation,
+        })
+        .eq('id', item.userBookId),
+    ),
+  )
+
+  const failed = updates.find((result) => result.error)
+  if (failed?.error) throw failed.error
+}
+
 export async function recordRecommendationFeedback({
   userId,
   bookId,
