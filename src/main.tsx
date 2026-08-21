@@ -10,6 +10,7 @@ import './shelfAppearance.css'
 import './bookDetailsDisplay.css'
 import './welcome.css'
 import './authSession.css'
+import './libraryFreedom.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
