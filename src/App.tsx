@@ -1,4 +1,4 @@
-import { CSSProperties, DragEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   Archive,
   BarChart3,
@@ -19,13 +19,23 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { DailyQuestBoard } from './components/DailyQuestBoard'
+import { FreeShelfView } from './components/FreeShelfView'
+import { ReaderProgressCard } from './components/ReaderProgressCard'
+import { SettingsPage } from './components/SettingsPage'
 import { ShelfAppearanceControl } from './components/ShelfAppearanceControl'
+import { WelcomeTour } from './components/WelcomeTour'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
 import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
 
-const shelfOrder: ReadingStatus[] = ['Currently Reading', 'Read', 'Want to Read']
+const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
 const storageKey = 'shelfie-books-v1'
 const detailsDisplayKey = 'shelfie-book-details-display-v1'
+const shelfCountKey = 'shelfie-shelf-count-v1'
+const tourKey = 'shelfie-walkthrough-seen-v1'
+const largeTextKey = 'shelfie-large-text-v1'
+const highContrastKey = 'shelfie-high-contrast-v1'
+const glowFocusKey = 'shelfie-glow-focus-v1'
 const palette = [
   ['#6b4327', '#e3b064'],
   ['#26384c', '#ddad66'],
@@ -36,9 +46,15 @@ const palette = [
   ['#273f50', '#e5c88e'],
 ]
 
-type View = 'shelf' | 'collection' | 'discover'
+type View = 'shelf' | 'collection' | 'discover' | 'settings'
 type AddBookOptions = { status: ReadingStatus; owned: boolean; format: BookFormat }
 type BookDetailsDisplay = 'side' | 'card'
+
+function defaultShelfForStatus(status: ReadingStatus) {
+  if (status === 'Read') return 1
+  if (status === 'Want to Read' || status === 'DNF') return 2
+  return 0
+}
 
 function loadLibrary(): Book[] {
   try {
@@ -47,23 +63,29 @@ function loadLibrary(): Book[] {
       const parsed = JSON.parse(saved) as Book[]
       return parsed.map((book) => {
         const starter = sampleBooks.find((sample) => sample.id === book.id || sample.title === book.title)
-        if (!starter) return book
+        const merged = starter
+          ? {
+              ...starter,
+              ...book,
+              owned: book.owned ?? starter.owned,
+              format: book.format ?? starter.format,
+              condition: book.condition ?? starter.condition,
+              purchasePrice: book.purchasePrice ?? starter.purchasePrice,
+              estimatedValue: book.estimatedValue ?? starter.estimatedValue,
+              subjects: book.subjects ?? starter.subjects,
+            }
+          : book
+
         return {
-          ...starter,
-          ...book,
-          owned: book.owned ?? starter.owned,
-          format: book.format ?? starter.format,
-          condition: book.condition ?? starter.condition,
-          purchasePrice: book.purchasePrice ?? starter.purchasePrice,
-          estimatedValue: book.estimatedValue ?? starter.estimatedValue,
-          subjects: book.subjects ?? starter.subjects,
+          ...merged,
+          shelfIndex: Number.isInteger(merged.shelfIndex) ? merged.shelfIndex : defaultShelfForStatus(merged.status),
         }
       })
     }
   } catch {
     // A fresh sample library is a safe fallback if browser storage is unavailable.
   }
-  return sampleBooks
+  return sampleBooks.map((book) => ({ ...book, shelfIndex: book.shelfIndex ?? defaultShelfForStatus(book.status) }))
 }
 
 function loadDetailsDisplay(): BookDetailsDisplay {
@@ -71,6 +93,35 @@ function loadDetailsDisplay(): BookDetailsDisplay {
     return localStorage.getItem(detailsDisplayKey) === 'card' ? 'card' : 'side'
   } catch {
     return 'side'
+  }
+}
+
+function loadShelfCount() {
+  try {
+    const saved = Number(localStorage.getItem(shelfCountKey))
+    if (Number.isInteger(saved) && saved >= 2 && saved <= 6) return saved
+  } catch {
+    // Use the cozy three-shelf default.
+  }
+  return 3
+}
+
+function loadBoolean(key: string, fallback: boolean) {
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved === 'true') return true
+    if (saved === 'false') return false
+  } catch {
+    // Use the supplied default.
+  }
+  return fallback
+}
+
+function shouldShowTour() {
+  try {
+    return localStorage.getItem(tourKey) !== 'done'
+  } catch {
+    return true
   }
 }
 
@@ -85,15 +136,17 @@ function money(value?: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 }
 
-export function App() {
+export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
   const [books, setBooks] = useState<Book[]>(loadLibrary)
   const [selectedBookId, setSelectedBookId] = useState(sampleBooks[2].id)
   const [detailsDisplay, setDetailsDisplay] = useState<BookDetailsDisplay>(loadDetailsDisplay)
   const [detailCardOpen, setDetailCardOpen] = useState(false)
+  const [shelfCount, setShelfCount] = useState(loadShelfCount)
+  const [tourOpen, setTourOpen] = useState(shouldShowTour)
   const [view, setView] = useState<View>('shelf')
-  const [largeText, setLargeText] = useState(false)
-  const [glowFocus, setGlowFocus] = useState(true)
-  const [highContrast, setHighContrast] = useState(false)
+  const [largeText, setLargeText] = useState(() => loadBoolean(largeTextKey, false))
+  const [glowFocus, setGlowFocus] = useState(() => loadBoolean(glowFocusKey, true))
+  const [highContrast, setHighContrast] = useState(() => loadBoolean(highContrastKey, false))
   const [query, setQuery] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [discoverTerm, setDiscoverTerm] = useState('')
@@ -110,6 +163,16 @@ export function App() {
     localStorage.setItem(detailsDisplayKey, detailsDisplay)
     if (detailsDisplay === 'side') setDetailCardOpen(false)
   }, [detailsDisplay])
+
+  useEffect(() => {
+    localStorage.setItem(shelfCountKey, String(shelfCount))
+  }, [shelfCount])
+
+  useEffect(() => {
+    localStorage.setItem(largeTextKey, String(largeText))
+    localStorage.setItem(highContrastKey, String(highContrast))
+    localStorage.setItem(glowFocusKey, String(glowFocus))
+  }, [largeText, highContrast, glowFocus])
 
   const selectedBook = books.find((book) => book.id === selectedBookId) ?? books[0]
 
@@ -159,14 +222,14 @@ export function App() {
     if (detailsDisplay === 'card') setDetailCardOpen(true)
   }
 
-  function reorderBook(draggedId: string, targetId: string | null, targetStatus: ReadingStatus) {
+  function reorderBook(draggedId: string, targetId: string | null, targetShelfIndex: number) {
     setBooks((current) => {
       if (draggedId === targetId) return current
       const dragged = current.find((book) => book.id === draggedId)
       if (!dragged) return current
 
       const remaining = current.filter((book) => book.id !== draggedId)
-      const movedBook = dragged.status === targetStatus ? dragged : { ...dragged, status: targetStatus }
+      const movedBook = { ...dragged, shelfIndex: targetShelfIndex }
 
       if (targetId) {
         const targetIndex = remaining.findIndex((book) => book.id === targetId)
@@ -178,7 +241,7 @@ export function App() {
 
       let insertIndex = remaining.length
       for (let index = remaining.length - 1; index >= 0; index -= 1) {
-        if (remaining[index].status === targetStatus) {
+        if ((remaining[index].shelfIndex ?? 0) === targetShelfIndex) {
           insertIndex = index + 1
           break
         }
@@ -186,6 +249,24 @@ export function App() {
       remaining.splice(insertIndex, 0, movedBook)
       return remaining
     })
+  }
+
+  function changeShelfCount(nextCount: number) {
+    const clamped = Math.max(2, Math.min(6, nextCount))
+    setShelfCount(clamped)
+    setBooks((current) => current.map((book) => ({
+      ...book,
+      shelfIndex: Math.min(book.shelfIndex ?? 0, clamped - 1),
+    })))
+  }
+
+  function closeTour() {
+    try {
+      localStorage.setItem(tourKey, 'done')
+    } catch {
+      // The walkthrough can still close if browser storage is unavailable.
+    }
+    setTourOpen(false)
   }
 
   function addBook(result: BookSearchResult, options: AddBookOptions) {
@@ -206,6 +287,7 @@ export function App() {
       title: result.title,
       author: result.author,
       status: options.status,
+      shelfIndex: 0,
       color: colors.color,
       accent: colors.accent,
       pages: result.pages || 0,
@@ -252,6 +334,7 @@ export function App() {
     shelf: { eyebrow: 'MY LIBRARY', title: 'My Bookshelf' },
     collection: { eyebrow: 'OWNED BOOKS', title: 'My Collection' },
     discover: { eyebrow: 'FIND YOUR NEXT READ', title: 'Discover' },
+    settings: { eyebrow: 'SHELFIE', title: 'Settings' },
   }
 
   return (
@@ -266,14 +349,12 @@ export function App() {
           <button className={view === 'discover' ? 'nav-active' : ''} onClick={() => setView('discover')}><Compass size={18} /> Discover</button>
           <button><Users size={18} /> Friends <span className="nav-soon">soon</span></button>
           <button><Trophy size={18} /> Trophy Case <span className="nav-soon">soon</span></button>
+          <button className={view === 'settings' ? 'nav-active' : ''} onClick={() => setView('settings')}><Settings2 size={18} /> Settings</button>
         </nav>
 
-        <div className="settings-card">
-          <div className="settings-title"><Settings2 size={17} /> Display & accessibility</div>
-          <Toggle label="Larger text" value={largeText} onChange={setLargeText} />
-          <Toggle label="High contrast" value={highContrast} onChange={setHighContrast} />
-          <Toggle label="Glow on focus" value={glowFocus} onChange={setGlowFocus} />
-          <DetailsDisplayPicker value={detailsDisplay} onChange={setDetailsDisplay} />
+        <div className="sidebar-progress-stack">
+          <ReaderProgressCard />
+          <DailyQuestBoard />
         </div>
       </aside>
 
@@ -290,20 +371,21 @@ export function App() {
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your shelf..." />
               </label>
             )}
-            <button className="primary" onClick={() => setAddOpen(true)}><BookPlus size={18} /> Add Book</button>
+            {view !== 'settings' && <button className="primary" onClick={() => setAddOpen(true)}><BookPlus size={18} /> Add Book</button>}
           </div>
         </header>
 
         {view === 'shelf' && (
-          <ShelfView
+          <FreeShelfView
             books={books}
-            filtered={filtered}
+            searchFiltered={filtered}
+            shelfCount={shelfCount}
             selectedBook={selectedBook}
             glowFocus={glowFocus}
             detailsDisplay={detailsDisplay}
             onSelect={selectShelfBook}
-            onUpdate={updateBook}
             onReorder={reorderBook}
+            sidePanel={selectedBook ? <BookDetails book={selectedBook} onUpdate={updateBook} /> : undefined}
           />
         )}
 
@@ -322,6 +404,23 @@ export function App() {
             onAdd={(result) => addBook(result, { status: 'Want to Read', owned: false, format: 'Hardcover' })}
           />
         )}
+
+        {view === 'settings' && (
+          <SettingsPage
+            largeText={largeText}
+            highContrast={highContrast}
+            glowFocus={glowFocus}
+            detailsDisplay={detailsDisplay}
+            shelfCount={shelfCount}
+            onLargeTextChange={setLargeText}
+            onHighContrastChange={setHighContrast}
+            onGlowFocusChange={setGlowFocus}
+            onDetailsDisplayChange={setDetailsDisplay}
+            onShelfCountChange={changeShelfCount}
+            onStartTour={() => setTourOpen(true)}
+            onSignOut={onSignOut}
+          />
+        )}
       </section>
 
       {addOpen && (
@@ -335,139 +434,9 @@ export function App() {
       {detailsDisplay === 'card' && detailCardOpen && selectedBook && (
         <BookDetailsModal book={selectedBook} onUpdate={updateBook} onClose={() => setDetailCardOpen(false)} />
       )}
+
+      {tourOpen && <WelcomeTour onClose={closeTour} />}
     </main>
-  )
-}
-
-function ShelfView({
-  books,
-  filtered,
-  selectedBook,
-  glowFocus,
-  detailsDisplay,
-  onSelect,
-  onUpdate,
-  onReorder,
-}: {
-  books: Book[]
-  filtered: Book[]
-  selectedBook?: Book
-  glowFocus: boolean
-  detailsDisplay: BookDetailsDisplay
-  onSelect: (id: string) => void
-  onUpdate: (id: string, patch: Partial<Book>) => void
-  onReorder: (draggedId: string, targetId: string | null, targetStatus: ReadingStatus) => void
-}) {
-  const [draggedBookId, setDraggedBookId] = useState<string | null>(null)
-  const [dragOverBookId, setDragOverBookId] = useState<string | null>(null)
-  const [dragOverStatus, setDragOverStatus] = useState<ReadingStatus | null>(null)
-  const ownedCount = books.filter((book) => book.owned).length
-  const collectionValue = books.reduce((sum, book) => sum + (book.owned ? book.estimatedValue ?? 0 : 0), 0)
-
-  function clearDragState() {
-    setDraggedBookId(null)
-    setDragOverBookId(null)
-    setDragOverStatus(null)
-  }
-
-  function startDrag(event: DragEvent<HTMLButtonElement>, book: Book) {
-    setDraggedBookId(book.id)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', book.id)
-  }
-
-  function getDraggedId(event: DragEvent<HTMLElement>) {
-    return draggedBookId || event.dataTransfer.getData('text/plain')
-  }
-
-  function dropOnBook(event: DragEvent<HTMLButtonElement>, targetBook: Book, status: ReadingStatus) {
-    event.preventDefault()
-    event.stopPropagation()
-    const draggedId = getDraggedId(event)
-    if (draggedId) onReorder(draggedId, targetBook.id, status)
-    clearDragState()
-  }
-
-  function dropOnShelf(event: DragEvent<HTMLDivElement>, status: ReadingStatus) {
-    event.preventDefault()
-    const draggedId = getDraggedId(event)
-    if (draggedId) onReorder(draggedId, null, status)
-    clearDragState()
-  }
-
-  return (
-    <>
-      <div className="library-summary">
-        <span><strong>{books.length}</strong> books on your shelf</span>
-        <span><strong>{books.filter((book) => book.status === 'Read').length}</strong> finished</span>
-        <span><strong>{books.filter((book) => book.status === 'Currently Reading').length}</strong> currently reading</span>
-        <span><strong>{ownedCount}</strong> owned</span>
-        {collectionValue > 0 && <span><strong>{money(collectionValue)}</strong> est. collection</span>}
-      </div>
-
-      <div className="shelf-drag-hint">Grab a book to rearrange it. Drop it on another shelf to change its reading status.</div>
-
-      <div className={`layout ${detailsDisplay === 'card' ? 'layout-full-shelf' : ''}`}>
-        <section className="bookcase" aria-label="Virtual bookshelf">
-          <div className="bookcase-frame">
-            {shelfOrder.map((status) => {
-              const shelfBooks = filtered.filter((book) => book.status === status)
-              return (
-                <div className={`shelf-row ${dragOverStatus === status ? 'drag-over-shelf' : ''}`} key={status}>
-                  <div className="shelf-label"><span>{status}</span><span>{shelfBooks.length}</span></div>
-                  <div
-                    className={`books ${dragOverStatus === status && !dragOverBookId ? 'shelf-drop-active' : ''}`}
-                    onDragOver={(event) => {
-                      event.preventDefault()
-                      event.dataTransfer.dropEffect = 'move'
-                      setDragOverStatus(status)
-                      setDragOverBookId(null)
-                    }}
-                    onDrop={(event) => dropOnShelf(event, status)}
-                  >
-                    {shelfBooks.length === 0 && <div className="empty-shelf">Drop a book here.</div>}
-                    {shelfBooks.map((book, index) => (
-                      <button
-                        className={`book-spine ${selectedBook?.id === book.id ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${draggedBookId === book.id ? 'dragging' : ''} ${dragOverBookId === book.id && draggedBookId !== book.id ? 'drop-target' : ''}`}
-                        style={{
-                          '--book-color': book.color,
-                          '--book-accent': book.accent,
-                          '--book-height': `${188 + (index % 4) * 13}px`,
-                          '--book-width': `${82 + ((index * 11) % 28)}px`,
-                        } as CSSProperties}
-                        key={book.id}
-                        draggable
-                        onDragStart={(event) => startDrag(event, book)}
-                        onDragOver={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          event.dataTransfer.dropEffect = 'move'
-                          setDragOverStatus(status)
-                          setDragOverBookId(book.id)
-                        }}
-                        onDrop={(event) => dropOnBook(event, book, status)}
-                        onDragEnd={clearDragState}
-                        onClick={() => onSelect(book.id)}
-                        aria-label={`${book.title} by ${book.author}. Drag to rearrange.`}
-                        title={detailsDisplay === 'card' ? 'Click for book details · drag to rearrange' : 'Drag to rearrange'}
-                      >
-                        {book.owned && <span className="owned-dot" title="Owned" />}
-                        <span className="spine-ornament">✦</span>
-                        <span className="spine-title">{book.title}</span>
-                        <span className="spine-author">{book.author}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="wood-shelf" />
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        {detailsDisplay === 'side' && selectedBook && <BookDetails book={selectedBook} onUpdate={onUpdate} />}
-      </div>
-    </>
   )
 }
 
@@ -499,6 +468,17 @@ function BookDetails({
           <p className="author">{book.author}</p>
           <div className="meta-row"><span>{book.genre}</span><span>{book.year}</span>{book.format && <span>{book.format}</span>}</div>
         </div>
+      </div>
+
+      <div className="detail-card reading-status-card">
+        <div className="card-heading"><span>Reading status</span><Library size={18} /></div>
+        <label>
+          <span>Show this book under</span>
+          <select value={book.status} onChange={(event) => onUpdate(book.id, { status: event.target.value as ReadingStatus })}>
+            {readingStatuses.map((status) => <option key={status}>{status}</option>)}
+          </select>
+        </label>
+        <p>Status controls the bookshelf filters. Changing it will not move the book from the shelf where you placed it.</p>
       </div>
 
       <ShelfAppearanceControl book={book} onUpdate={onUpdate} />
@@ -752,8 +732,8 @@ function AddBookModal({
         </form>
 
         <div className="add-options-row">
-          <div className="status-picker" aria-label="Shelf to add books to">
-            {shelfOrder.map((option) => (
+          <div className="status-picker" aria-label="Reading status for new book">
+            {readingStatuses.map((option) => (
               <button className={status === option ? 'status-option active' : 'status-option'} onClick={() => setStatus(option)} key={option} type="button">{option}</button>
             ))}
           </div>
@@ -787,49 +767,4 @@ function AddBookModal({
 
 function isAlreadyInLibrary(result: BookSearchResult, books: Book[]) {
   return books.some((book) => book.externalId === result.key || (book.isbn && result.isbn && book.isbn === result.isbn))
-}
-
-function DetailsDisplayPicker({
-  value,
-  onChange,
-}: {
-  value: BookDetailsDisplay
-  onChange: (value: BookDetailsDisplay) => void
-}) {
-  return (
-    <div className="details-display-setting">
-      <span className="details-display-label">Book details display</span>
-      <div className="details-display-options" role="radiogroup" aria-label="Book details display style">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === 'side'}
-          className={`details-display-option ${value === 'side' ? 'active' : ''}`}
-          onClick={() => onChange('side')}
-        >
-          Side panel
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={value === 'card'}
-          className={`details-display-option ${value === 'card' ? 'active' : ''}`}
-          onClick={() => onChange('card')}
-        >
-          Pop-up card
-        </button>
-      </div>
-      <small className="details-display-note">Card mode gives the bookshelf the full content width.</small>
-    </div>
-  )
-}
-
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
-  return (
-    <label className="toggle-row">
-      <span>{label}</span>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
-      <span className="toggle-ui" />
-    </label>
-  )
 }
