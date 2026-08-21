@@ -1,4 +1,4 @@
-import { BookOpen, Headphones, MonitorSmartphone, Sparkles } from 'lucide-react'
+import { BookOpen, Headphones, Smartphone, Sparkles } from 'lucide-react'
 import type { Book, BookFormat, ShelfDisplayStyle } from '../data/books'
 
 const displayStyles: ShelfDisplayStyle[] = [
@@ -20,7 +20,7 @@ export function defaultDisplayStyle(format?: BookFormat): ShelfDisplayStyle {
 
 function iconForStyle(style: ShelfDisplayStyle) {
   if (style === 'Cassette' || style === 'Cassette Case' || style === 'Audio Case') return <Headphones size={16} />
-  if (style === 'E-reader' || style === 'Digital Tile') return <MonitorSmartphone size={16} />
+  if (style === 'E-reader' || style === 'Digital Tile') return <Smartphone size={16} />
   if (style === 'Auto') return <Sparkles size={16} />
   return <BookOpen size={16} />
 }
