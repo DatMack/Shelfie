@@ -1,0 +1,88 @@
+/* Edition-aware illustrated spines. The front-cover image supplies texture and palette while
+   Shelfie keeps the physical spine dimensions and overlays readable metadata. */
+.freeform-bookcase .book-spine.book-illustrated-spine {
+  background: var(--book-color) !important;
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine .shelf-cover-art {
+  display: block !important;
+  inset: -7% -65%;
+  width: 230%;
+  height: 114%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(.88) brightness(.58) contrast(1.16);
+  transform: scale(1.05);
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.19), transparent 13%, transparent 72%, rgba(0,0,0,.6)),
+    linear-gradient(180deg, rgba(8,5,3,.12), rgba(8,5,3,.02) 24%, rgba(8,5,3,.2) 72%, rgba(8,5,3,.55));
+  box-shadow:
+    inset 2px 0 1px rgba(255,255,255,.1),
+    inset -5px 0 8px rgba(0,0,0,.35);
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine .spine-title,
+.freeform-bookcase .book-spine.book-illustrated-spine .spine-author,
+.freeform-bookcase .book-spine.book-illustrated-spine .spine-ornament {
+  display: block !important;
+  position: relative;
+  z-index: 2;
+  color: #fff7e7;
+  text-shadow: 0 1px 2px #000, 0 0 5px rgba(0,0,0,.95);
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine .spine-title {
+  max-height: 128px;
+  padding: 5px 3px;
+  border-radius: 3px;
+  background: rgba(12,8,5,.34);
+  font-weight: 700;
+  letter-spacing: .075em;
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine .spine-author {
+  max-height: 56px;
+  opacity: .94;
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine .spine-ornament {
+  color: var(--book-accent);
+  filter: drop-shadow(0 1px 2px #000);
+}
+
+.freeform-bookcase .book-spine.book-illustrated-spine .owned-dot {
+  position: absolute;
+  z-index: 3;
+}
+
+/* A laid-flat smart spine becomes a horizontal jacket strip without changing its collision box. */
+.free-layout-zone .book-illustrated-spine.book-horizontal .shelf-cover-art {
+  inset: -70% -5%;
+  width: 110%;
+  height: 240%;
+}
+
+.free-layout-zone .book-illustrated-spine.book-horizontal .spine-title {
+  display: block !important;
+  max-width: 78%;
+  padding: 3px 7px;
+  writing-mode: horizontal-tb;
+  transform: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.free-layout-zone .book-illustrated-spine.book-horizontal .spine-author,
+.free-layout-zone .book-illustrated-spine.book-horizontal .spine-ornament {
+  display: none !important;
+}

@@ -206,10 +206,11 @@ function BookSpine({
   const coverUrl = shelfCoverUrl(book)
   const showsCoverArt = Boolean(coverUrl) && (displayStyle === 'Spine' || displayStyle === 'Front Cover')
   const frontCover = displayStyle === 'Front Cover'
+  const illustratedSpine = Boolean(coverUrl) && displayStyle === 'Spine'
 
   return (
     <button
-      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
+      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${illustratedSpine ? 'book-illustrated-spine' : ''} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
       style={{
         '--book-color': book.color,
         '--book-accent': book.accent,
