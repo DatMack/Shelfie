@@ -1,6 +1,7 @@
-import { CSSProperties, DragEvent, ReactNode, useMemo, useState } from 'react'
+import { CSSProperties, DragEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import type { Book, ReadingStatus } from '../data/books'
 import type { ShelfFinishId, ShelfStyleId } from '../data/customization'
+import { customizationEvent, loadShelfFinish, loadShelfStyle } from '../lib/customizationRuntime'
 
 export type ShelfFilter = 'All' | ReadingStatus
 
@@ -16,8 +17,6 @@ export function FreeShelfView({
   books,
   searchFiltered,
   shelfCount,
-  shelfStyle,
-  shelfFinish,
   selectedBook,
   glowFocus,
   detailsDisplay,
@@ -28,8 +27,6 @@ export function FreeShelfView({
   books: Book[]
   searchFiltered: Book[]
   shelfCount: number
-  shelfStyle: ShelfStyleId
-  shelfFinish: ShelfFinishId
   selectedBook?: Book
   glowFocus: boolean
   detailsDisplay: 'side' | 'card'
@@ -38,9 +35,20 @@ export function FreeShelfView({
   sidePanel?: ReactNode
 }) {
   const [filter, setFilter] = useState<ShelfFilter>('All')
+  const [shelfStyle, setShelfStyle] = useState<ShelfStyleId>(loadShelfStyle)
+  const [shelfFinish, setShelfFinish] = useState<ShelfFinishId>(loadShelfFinish)
   const [draggedBookId, setDraggedBookId] = useState<string | null>(null)
   const [dragOverBookId, setDragOverBookId] = useState<string | null>(null)
   const [dragOverShelf, setDragOverShelf] = useState<number | null>(null)
+
+  useEffect(() => {
+    function refreshCustomization() {
+      setShelfStyle(loadShelfStyle())
+      setShelfFinish(loadShelfFinish())
+    }
+    window.addEventListener(customizationEvent, refreshCustomization)
+    return () => window.removeEventListener(customizationEvent, refreshCustomization)
+  }, [])
 
   const visibleBooks = useMemo(
     () => filter === 'All' ? searchFiltered : searchFiltered.filter((book) => book.status === filter),
