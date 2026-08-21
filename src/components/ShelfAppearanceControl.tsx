@@ -34,6 +34,7 @@ export function ShelfAppearanceControl({
 }) {
   const selected = book.displayStyle ?? 'Auto'
   const automatic = defaultDisplayStyle(book.format)
+  const hasCover = Boolean(book.displayCoverUrl ?? book.coverUrl)
 
   return (
     <div className="detail-card shelf-appearance-card">
@@ -62,7 +63,11 @@ export function ShelfAppearanceControl({
         ))}
       </div>
 
-      <small className="appearance-note">Cover and edition selection will live here too once multiple edition images are connected.</small>
+      <small className="appearance-note">
+        {hasCover
+          ? 'Cover art is connected. Spine uses it as a wrapped texture; Front Cover displays the real cover face-out and uses more shelf space.'
+          : 'No cover image was found for this result yet. Shelfie falls back to its generated spine design.'}
+      </small>
     </div>
   )
 }
