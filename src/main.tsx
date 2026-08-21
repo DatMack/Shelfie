@@ -7,6 +7,7 @@ import './styles.css'
 import './future.css'
 import './readerProgress.css'
 import './dailyQuests.css'
+import './dragDrop.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
