@@ -1,6 +1,6 @@
 import { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { Book, ReadingStatus } from '../data/books'
-import type { ShelfFinishId, ShelfStyleId } from '../data/customization'
+import { shelfStyles, type ShelfFinishId, type ShelfStyleId } from '../data/customization'
 import { customizationEvent, loadShelfFinish, loadShelfStyle } from '../lib/customizationRuntime'
 
 export type ShelfFilter = 'All' | ReadingStatus
@@ -17,6 +17,7 @@ type BookPlacement = {
 }
 
 type PlacementMap = Record<string, BookPlacement>
+type LayoutProfiles = Record<string, PlacementMap>
 type PlacementPreview = BookPlacement & { bookId: string; valid: boolean }
 
 const filters: Array<{ value: ShelfFilter; label: string }> = [
@@ -28,11 +29,9 @@ const filters: Array<{ value: ShelfFilter; label: string }> = [
 ]
 
 const cubeColumns = 3
-const cubePlacementKey = 'shelfie-cube-placement-v1'
-const freePlacementKey = 'shelfie-free-placement-v1'
+const layoutProfilesKey = 'shelfie-layout-profiles-v1'
+const legacyFreePlacementKey = 'shelfie-free-placement-v1'
 const snapDistance = 14
-
-type CubePlacement = Record<string, number>
 
 type BookSpineProps = {
   book: Book
@@ -46,41 +45,51 @@ type BookSpineProps = {
   onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
 }
 
-function loadCubePlacement(): CubePlacement {
-  try {
-    const saved = localStorage.getItem(cubePlacementKey)
-    if (!saved) return {}
-    const parsed = JSON.parse(saved) as CubePlacement
-    return Object.fromEntries(
-      Object.entries(parsed).filter(([, value]) => Number.isInteger(value) && value >= 0 && value < cubeColumns),
-    )
-  } catch {
-    return {}
-  }
+function profileKey(style: ShelfStyleId, filter: ShelfFilter) {
+  return `${style}::${filter}`
 }
 
-function loadFreePlacement(): PlacementMap {
+function normalizePlacementMap(value: unknown): PlacementMap {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(
+    Object.entries(value as Record<string, BookPlacement>).filter(([, placement]) => (
+      placement
+      && Number.isInteger(placement.shelfIndex)
+      && placement.shelfIndex >= 0
+      && (placement.cubeColumn === undefined || (Number.isInteger(placement.cubeColumn) && placement.cubeColumn >= 0 && placement.cubeColumn < cubeColumns))
+      && typeof placement.x === 'number'
+      && placement.x >= 0
+      && placement.x <= 1
+      && typeof placement.y === 'number'
+      && placement.y >= 0
+      && typeof placement.angle === 'number'
+      && (placement.orientation === 'upright' || placement.orientation === 'horizontal')
+    )),
+  )
+}
+
+function loadLayoutProfiles(): LayoutProfiles {
   try {
-    const saved = localStorage.getItem(freePlacementKey)
-    if (!saved) return {}
-    const parsed = JSON.parse(saved) as PlacementMap
-    return Object.fromEntries(
-      Object.entries(parsed).filter(([, placement]) => (
-        placement
-        && Number.isInteger(placement.shelfIndex)
-        && placement.shelfIndex >= 0
-        && typeof placement.x === 'number'
-        && placement.x >= 0
-        && placement.x <= 1
-        && typeof placement.y === 'number'
-        && placement.y >= 0
-        && typeof placement.angle === 'number'
-        && (placement.orientation === 'upright' || placement.orientation === 'horizontal')
-      )),
-    )
+    const saved = localStorage.getItem(layoutProfilesKey)
+    if (saved) {
+      const parsed = JSON.parse(saved) as Record<string, unknown>
+      return Object.fromEntries(
+        Object.entries(parsed)
+          .map(([key, value]) => [key, normalizePlacementMap(value)] as const)
+          .filter(([, value]) => Object.keys(value).length > 0),
+      )
+    }
+
+    // Preserve the original Organize Mode layout as the Classic / All showcase.
+    const legacy = localStorage.getItem(legacyFreePlacementKey)
+    if (legacy) {
+      const migrated = normalizePlacementMap(JSON.parse(legacy))
+      if (Object.keys(migrated).length > 0) return { [profileKey('classic', 'All')]: migrated }
+    }
   } catch {
-    return {}
+    // A clean set of shelf profiles is a safe fallback if browser storage is unavailable.
   }
+  return {}
 }
 
 function bookDimensions(book: Book, index: number) {
@@ -136,8 +145,8 @@ function visualDimensions(book: Book, index: number, orientation: BookOrientatio
 
 function defaultPlacement(index: number, shelfIndex: number, cubeColumn?: number): BookPlacement {
   const x = cubeColumn === undefined
-    ? Math.min(.86, .025 + index * .105)
-    : Math.min(.7, .055 + index * .29)
+    ? Math.min(.88, .025 + index * .095)
+    : Math.min(.72, .045 + index * .27)
 
   return { shelfIndex, cubeColumn, x, y: 0, angle: 0, orientation: 'upright' }
 }
@@ -179,6 +188,7 @@ function BookSpine({
           '--book-rotation': `${placement.angle}deg`,
         } : {}),
       } as CSSProperties}
+      data-shelf-book-id={book.id}
       draggable={false}
       onPointerDown={onPointerDown}
       onClick={onSelect}
@@ -193,18 +203,6 @@ function BookSpine({
   )
 }
 
-function DecorPreview({ shelfStyle }: { shelfStyle: ShelfStyleId }) {
-  if (shelfStyle === 'floating') return null
-
-  return (
-    <div className="bookcase-top-decor" title="Reserved for draggable earned decorations later" aria-label="Future top decoration area">
-      <div className="decor-preview-stack" aria-hidden="true"><i /><i /><i /></div>
-      <div className="decor-preview-mug" aria-hidden="true" />
-      <div className="decor-preview-plant" aria-hidden="true"><i /><span /></div>
-    </div>
-  )
-}
-
 export function FreeShelfView({
   books,
   searchFiltered,
@@ -213,7 +211,6 @@ export function FreeShelfView({
   glowFocus,
   detailsDisplay,
   onSelect,
-  onReorder,
   sidePanel,
 }: {
   books: Book[]
@@ -229,30 +226,39 @@ export function FreeShelfView({
   const [filter, setFilter] = useState<ShelfFilter>('All')
   const [shelfStyle, setShelfStyle] = useState<ShelfStyleId>(loadShelfStyle)
   const [shelfFinish, setShelfFinish] = useState<ShelfFinishId>(loadShelfFinish)
-  const [cubePlacement, setCubePlacement] = useState<CubePlacement>(loadCubePlacement)
-  const [freePlacement, setFreePlacement] = useState<PlacementMap>(loadFreePlacement)
+  const [layoutProfiles, setLayoutProfiles] = useState<LayoutProfiles>(loadLayoutProfiles)
   const [organizeMode, setOrganizeMode] = useState(false)
   const [activeBookId, setActiveBookId] = useState<string | null>(null)
   const [draggingBookId, setDraggingBookId] = useState<string | null>(null)
   const [placementPreview, setPlacementPreview] = useState<PlacementPreview | null>(null)
   const dragOffset = useRef({ x: 0, y: 0 })
 
+  const activeProfileKey = profileKey(shelfStyle, filter)
+  const freePlacement = layoutProfiles[activeProfileKey] ?? {}
+  const activeFilterLabel = filters.find((option) => option.value === filter)?.label ?? 'All'
+  const activeStyleName = shelfStyles.find((style) => style.id === shelfStyle)?.name ?? shelfStyle
+
   useEffect(() => {
     function refreshCustomization() {
       setShelfStyle(loadShelfStyle())
       setShelfFinish(loadShelfFinish())
+      setOrganizeMode(false)
+      setActiveBookId(null)
+      setDraggingBookId(null)
+      setPlacementPreview(null)
     }
     window.addEventListener(customizationEvent, refreshCustomization)
     return () => window.removeEventListener(customizationEvent, refreshCustomization)
   }, [])
 
   useEffect(() => {
-    try { localStorage.setItem(cubePlacementKey, JSON.stringify(cubePlacement)) } catch { /* Keep it in memory. */ }
-  }, [cubePlacement])
+    try { localStorage.setItem(layoutProfilesKey, JSON.stringify(layoutProfiles)) } catch { /* Keep profiles in memory. */ }
+  }, [layoutProfiles])
 
-  useEffect(() => {
-    try { localStorage.setItem(freePlacementKey, JSON.stringify(freePlacement)) } catch { /* Keep it in memory. */ }
-  }, [freePlacement])
+  const profileBooks = useMemo(
+    () => filter === 'All' ? books : books.filter((book) => book.status === filter),
+    [books, filter],
+  )
 
   const visibleBooks = useMemo(
     () => filter === 'All' ? searchFiltered : searchFiltered.filter((book) => book.status === filter),
@@ -262,49 +268,79 @@ export function FreeShelfView({
   const finished = books.filter((book) => book.status === 'Read').length
   const reading = books.filter((book) => book.status === 'Currently Reading').length
   const freeLayoutActive = organizeMode || Object.keys(freePlacement).length > 0
-  const activeBook = books.find((book) => book.id === activeBookId)
+  const activeBook = profileBooks.find((book) => book.id === activeBookId)
+
+  function updateActiveProfile(updater: (current: PlacementMap) => PlacementMap) {
+    setLayoutProfiles((currentProfiles) => ({
+      ...currentProfiles,
+      [activeProfileKey]: updater(currentProfiles[activeProfileKey] ?? {}),
+    }))
+  }
+
+  function baseShelfFor(book: Book) {
+    const saved = freePlacement[book.id]
+    if (saved) return saved.shelfIndex
+    if (filter === 'All') return Math.min(book.shelfIndex ?? 0, shelfCount - 1)
+
+    const index = Math.max(0, profileBooks.findIndex((candidate) => candidate.id === book.id))
+    const perShelf = Math.max(1, Math.ceil(profileBooks.length / shelfCount))
+    return Math.min(shelfCount - 1, Math.floor(index / perShelf))
+  }
 
   function currentShelfFor(book: Book) {
-    return freePlacement[book.id]?.shelfIndex ?? book.shelfIndex ?? 0
+    return freePlacement[book.id]?.shelfIndex ?? baseShelfFor(book)
   }
 
   function defaultCubeColumn(book: Book) {
     const shelfIndex = currentShelfFor(book)
-    const peers = books.filter((candidate) => currentShelfFor(candidate) === shelfIndex)
+    const peers = profileBooks.filter((candidate) => currentShelfFor(candidate) === shelfIndex)
     const index = Math.max(0, peers.findIndex((candidate) => candidate.id === book.id))
     return Math.min(cubeColumns - 1, Math.floor(index / 2))
   }
 
   function cubeColumnFor(book: Book) {
-    return freePlacement[book.id]?.cubeColumn ?? cubePlacement[book.id] ?? defaultCubeColumn(book)
+    return freePlacement[book.id]?.cubeColumn ?? defaultCubeColumn(book)
   }
 
   function placementFor(book: Book, index: number, shelfIndex: number, cubeColumn?: number) {
-    const saved = freePlacement[book.id]
-    if (saved) return saved
-    return defaultPlacement(index, shelfIndex, cubeColumn)
+    return freePlacement[book.id] ?? defaultPlacement(index, shelfIndex, cubeColumn)
   }
 
   function initializeFreeLayout() {
-    setFilter('All')
-    setFreePlacement((current) => {
+    updateActiveProfile((current) => {
       const next = { ...current }
+      const renderedBooks = new Map<string, HTMLElement>()
+      document.querySelectorAll<HTMLElement>('[data-shelf-book-id]').forEach((element) => {
+        const id = element.dataset.shelfBookId
+        if (id) renderedBooks.set(id, element)
+      })
 
-      for (let shelfIndex = 0; shelfIndex < shelfCount; shelfIndex += 1) {
-        if (shelfStyle === 'cube') {
-          for (let cubeColumn = 0; cubeColumn < cubeColumns; cubeColumn += 1) {
-            const cellBooks = books.filter((book) => currentShelfFor(book) === shelfIndex && cubeColumnFor(book) === cubeColumn)
-            cellBooks.forEach((book, index) => {
-              if (!next[book.id]) next[book.id] = defaultPlacement(index, shelfIndex, cubeColumn)
-            })
+      profileBooks.forEach((book) => {
+        if (next[book.id]) return
+        const element = renderedBooks.get(book.id)
+        const zone = element?.closest<HTMLElement>('[data-shelf-zone="true"]')
+        if (element && zone) {
+          const zoneRect = zone.getBoundingClientRect()
+          const bookRect = element.getBoundingClientRect()
+          const shelfIndex = Number(zone.dataset.shelfIndex)
+          const cubeColumn = zone.dataset.cubeColumn === undefined ? undefined : Number(zone.dataset.cubeColumn)
+          next[book.id] = {
+            shelfIndex: Number.isInteger(shelfIndex) ? shelfIndex : baseShelfFor(book),
+            cubeColumn: Number.isInteger(cubeColumn) ? cubeColumn : undefined,
+            x: zoneRect.width ? clamp((bookRect.left - zoneRect.left) / zoneRect.width, 0, 1) : 0,
+            y: 0,
+            angle: 0,
+            orientation: 'upright',
           }
-        } else {
-          const shelfBooks = books.filter((book) => currentShelfFor(book) === shelfIndex)
-          shelfBooks.forEach((book, index) => {
-            if (!next[book.id]) next[book.id] = defaultPlacement(index, shelfIndex)
-          })
+          return
         }
-      }
+
+        const shelfIndex = baseShelfFor(book)
+        const cubeColumn = shelfStyle === 'cube' ? defaultCubeColumn(book) : undefined
+        const index = profileBooks.filter((candidate) => baseShelfFor(candidate) === shelfIndex).findIndex((candidate) => candidate.id === book.id)
+        next[book.id] = defaultPlacement(Math.max(0, index), shelfIndex, cubeColumn)
+      })
+
       return next
     })
     setOrganizeMode(true)
@@ -317,15 +353,26 @@ export function FreeShelfView({
     setActiveBookId(null)
   }
 
-  function resetFreeLayout() {
-    setFreePlacement({})
+  function resetCurrentProfile() {
+    setLayoutProfiles((currentProfiles) => {
+      const next = { ...currentProfiles }
+      delete next[activeProfileKey]
+      return next
+    })
     setActiveBookId(null)
     setPlacementPreview(null)
-    try { localStorage.removeItem(freePlacementKey) } catch { /* Ignore browser storage failures. */ }
+    setDraggingBookId(null)
+  }
+
+  function changeFilter(nextFilter: ShelfFilter) {
+    if (organizeMode) return
+    setFilter(nextFilter)
+    setActiveBookId(null)
+    setPlacementPreview(null)
   }
 
   function getBookIndexInZone(book: Book, shelfIndex: number, cubeColumn?: number) {
-    const peers = books.filter((candidate) => {
+    const peers = profileBooks.filter((candidate) => {
       if (currentShelfFor(candidate) !== shelfIndex) return false
       if (cubeColumn === undefined) return true
       return cubeColumnFor(candidate) === cubeColumn
@@ -347,13 +394,12 @@ export function FreeShelfView({
     if (left < snapDistance) left = 0
     if (maxLeft - left < snapDistance) left = maxLeft
 
-    const zoneBooks = books.filter((candidate) => {
+    const zoneBooks = profileBooks.filter((candidate) => {
       if (candidate.id === book.id) return false
       const placement = freePlacement[candidate.id]
-      const candidateShelf = placement?.shelfIndex ?? candidate.shelfIndex ?? 0
-      if (candidateShelf !== shelfIndex) return false
-      if (cubeColumn === undefined) return true
-      return (placement?.cubeColumn ?? cubeColumnFor(candidate)) === cubeColumn
+      if (!placement || placement.shelfIndex !== shelfIndex) return false
+      if (cubeColumn === undefined) return placement.cubeColumn === undefined
+      return placement.cubeColumn === cubeColumn
     })
 
     for (const other of zoneBooks) {
@@ -370,7 +416,6 @@ export function FreeShelfView({
 
     left = clamp(left, 0, maxLeft)
 
-    // Simple gravity: books fall to the shelf floor unless a horizontal stack is directly underneath them.
     let supportY = 0
     for (const other of zoneBooks) {
       const otherPlacement = freePlacement[other.id]
@@ -385,7 +430,6 @@ export function FreeShelfView({
 
     let valid = supportY + dims.height <= rect.height - 8
 
-    // Prevent books from occupying the same physical volume. Lean angles are intentionally forgiving.
     for (const other of zoneBooks) {
       const otherPlacement = freePlacement[other.id]
       if (!otherPlacement) continue
@@ -431,7 +475,7 @@ export function FreeShelfView({
   useEffect(() => {
     if (!organizeMode || !draggingBookId) return
 
-    const book = books.find((candidate) => candidate.id === draggingBookId)
+    const book = profileBooks.find((candidate) => candidate.id === draggingBookId)
     if (!book) return
 
     function move(event: PointerEvent) {
@@ -448,13 +492,7 @@ export function FreeShelfView({
       setPlacementPreview((preview) => {
         if (preview?.bookId === draggingBookId && preview.valid) {
           const { bookId, valid: _valid, ...placement } = preview
-          setFreePlacement((current) => ({ ...current, [bookId]: placement }))
-          if (placement.cubeColumn !== undefined) {
-            setCubePlacement((current) => ({ ...current, [bookId]: placement.cubeColumn as number }))
-          }
-          if (currentShelfFor(book) !== placement.shelfIndex) {
-            onReorder(bookId, null, placement.shelfIndex)
-          }
+          updateActiveProfile((current) => ({ ...current, [bookId]: placement }))
         }
         return null
       })
@@ -469,7 +507,7 @@ export function FreeShelfView({
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
     }
-  }, [organizeMode, draggingBookId, books, freePlacement, shelfStyle])
+  }, [organizeMode, draggingBookId, profileBooks, freePlacement, shelfStyle, activeProfileKey])
 
   function updateActiveBookPlacement(patch: Partial<BookPlacement>) {
     if (!activeBook) return
@@ -477,19 +515,19 @@ export function FreeShelfView({
     const cubeColumn = shelfStyle === 'cube' ? cubeColumnFor(activeBook) : undefined
     const index = getBookIndexInZone(activeBook, shelfIndex, cubeColumn)
     const current = placementFor(activeBook, index, shelfIndex, cubeColumn)
-    setFreePlacement((placements) => ({
+    updateActiveProfile((placements) => ({
       ...placements,
       [activeBook.id]: {
         ...current,
         ...patch,
-        y: patch.orientation !== undefined || patch.angle !== undefined ? 0 : (patch.y ?? current.y),
+        y: patch.orientation !== undefined ? 0 : (patch.y ?? current.y),
       },
     }))
   }
 
   function renderPreview(shelfIndex: number, cubeColumn?: number) {
     if (!placementPreview || placementPreview.shelfIndex !== shelfIndex || placementPreview.cubeColumn !== cubeColumn) return null
-    const book = books.find((candidate) => candidate.id === placementPreview.bookId)
+    const book = profileBooks.find((candidate) => candidate.id === placementPreview.bookId)
     if (!book) return null
     const index = getBookIndexInZone(book, shelfIndex, cubeColumn)
     const dimensions = bookDimensions(book, index)
@@ -590,15 +628,15 @@ export function FreeShelfView({
       </div>
 
       <div className="library-toolbar">
-        <div className="library-filters" role="tablist" aria-label="Filter bookshelf by reading status">
+        <div className="library-filters" role="tablist" aria-label="Choose a saved reading shelf">
           {filters.map((option) => (
             <button
               type="button"
               role="tab"
               aria-selected={filter === option.value}
               className={filter === option.value ? 'library-filter active' : 'library-filter'}
-              onClick={() => !organizeMode && setFilter(option.value)}
-              disabled={organizeMode && option.value !== 'All'}
+              onClick={() => changeFilter(option.value)}
+              disabled={organizeMode && option.value !== filter}
               key={option.value}
             >
               {option.label}
@@ -606,11 +644,12 @@ export function FreeShelfView({
           ))}
         </div>
         <div className="organize-actions">
+          <span className="layout-profile-note"><strong>{activeStyleName}</strong><span>{activeFilterLabel} layout</span><small>saved separately</small></span>
           {!organizeMode ? (
             <button type="button" className="organize-button" onClick={initializeFreeLayout}>✥ Organize Shelf</button>
           ) : (
             <>
-              <button type="button" className="organize-reset" onClick={resetFreeLayout}>Reset layout</button>
+              <button type="button" className="organize-reset" onClick={resetCurrentProfile}>Reset this layout</button>
               <button type="button" className="organize-done" onClick={finishOrganizing}>✓ Done</button>
             </>
           )}
@@ -620,8 +659,8 @@ export function FreeShelfView({
       {organizeMode && (
         <section className="organize-mode-bar" aria-label="Shelf organization controls">
           <div>
-            <strong>Organize mode</strong>
-            <span>Drag books freely. Shelfie snaps to edges and nearby books, and gravity keeps books on a shelf or supported stack.</span>
+            <strong>Organizing {activeStyleName} · {activeFilterLabel}</strong>
+            <span>This is its own saved showcase. Drag, lean, stack, and place books here without changing your other shelf styles or reading views.</span>
           </div>
           {activeBook ? (
             <div className="book-transform-controls" aria-label={`Position controls for ${activeBook.title}`}>
@@ -638,8 +677,8 @@ export function FreeShelfView({
       )}
 
       <div className={`layout ${detailsDisplay === 'card' ? 'layout-full-shelf' : ''} ${organizeMode ? 'layout-organizing' : ''}`}>
-        <section className={`bookcase freeform-bookcase shelf-style-${shelfStyle} shelf-finish-${shelfFinish} ${organizeMode ? 'bookcase-organizing' : ''}`} aria-label="Freeform virtual bookshelf">
-          <DecorPreview shelfStyle={shelfStyle} />
+        <section className={`bookcase freeform-bookcase shelf-style-${shelfStyle} shelf-finish-${shelfFinish} ${organizeMode ? 'bookcase-organizing' : ''}`} aria-label={`${activeStyleName}, ${activeFilterLabel} saved bookshelf`}>
+          {shelfStyle !== 'floating' && <div className="bookcase-top-decor" aria-hidden="true" />}
           <div className="bookcase-stage">
             <div className="bookcase-side-decor side-decor-left" title="Reserved for future side decorations" aria-hidden="true"><span>+</span></div>
             {bookcaseContent}
