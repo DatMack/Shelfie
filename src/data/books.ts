@@ -1,6 +1,7 @@
 export type ReadingStatus = 'Currently Reading' | 'Read' | 'Want to Read' | 'DNF'
 export type BookFormat = 'Hardcover' | 'Paperback' | 'Mass Market' | 'Ebook' | 'Audiobook' | 'Other'
 export type BookCondition = 'New' | 'Like New' | 'Very Good' | 'Good' | 'Fair' | 'Poor'
+export type MarketplaceStatus = 'Not Listed' | 'For Trade' | 'For Sale' | 'Free'
 
 export type Book = {
   id: string
@@ -42,8 +43,17 @@ export type Book = {
   gifted?: boolean
   purchaseDate?: string
   storageLocation?: string
-  loanedTo?: string
   acquiredFrom?: string
+
+  // Current-loan preview fields. Full loan history lives in book_loans in Supabase.
+  loanedTo?: string
+  loanedAt?: string
+  loanDueDate?: string
+
+  // Marketplace preview fields. Real listings/offers live in separate Supabase tables.
+  marketplaceStatus?: MarketplaceStatus
+  askingPrice?: number
+  tradeWishlist?: string
 
   // Future recommendation / journal signals.
   favorite?: boolean
