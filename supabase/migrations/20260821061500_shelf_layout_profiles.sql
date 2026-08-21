@@ -5,6 +5,7 @@ create table if not exists public.shelf_layouts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   shelf_style text not null,
+  shelf_finish text not null default 'starter-wood',
   view_key text not null check (view_key in ('all', 'currently_reading', 'want_to_read', 'read', 'dnf')),
   shelf_count integer not null default 3 check (shelf_count between 1 and 12),
   created_at timestamptz not null default now(),
@@ -109,7 +110,7 @@ create policy "Readers can remove books from their shelf layouts"
   );
 
 comment on table public.shelf_layouts is
-  'One independently saved virtual bookshelf per user, shelf style, and reading view.';
+  'One independently saved virtual bookshelf per user, shelf style, and reading view, including the selected finish and shelf count.';
 
 comment on table public.shelf_layout_books is
   'Per-book placement for a saved Shelfie layout, including row, cubby, position, rotation, and orientation.';
