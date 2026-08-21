@@ -6,6 +6,13 @@
   isolation: isolate;
 }
 
+/* Shelf books are visual objects now. Metadata lives in the hover card instead of being printed over the art. */
+.freeform-bookcase .book-spine .spine-title,
+.freeform-bookcase .book-spine .spine-author,
+.freeform-bookcase .book-spine .spine-ornament {
+  display: none !important;
+}
+
 .shelf-cover-art {
   position: absolute;
   inset: 0;
@@ -17,32 +24,22 @@
   z-index: 0;
 }
 
-/* A real front-cover image wrapped onto a narrow spine gives each book its own visual identity
-   without pretending the API provides actual spine scans. */
+/* Crop the real cover into a believable wrapped-spine texture without extra test lettering. */
 .book-has-cover-art:not(.book-front-cover) .shelf-cover-art {
-  object-position: 48% center;
-  opacity: .46;
-  filter: saturate(.82) brightness(.62) contrast(1.18);
-  transform: scale(1.08);
+  object-position: 50% center;
+  opacity: .72;
+  filter: saturate(.9) brightness(.72) contrast(1.1);
 }
 
 .book-has-cover-art:not(.book-front-cover) {
   background:
-    linear-gradient(90deg, rgba(255,255,255,.12), transparent 13%, transparent 76%, rgba(0,0,0,.5)),
+    linear-gradient(90deg, rgba(255,255,255,.1), transparent 13%, transparent 76%, rgba(0,0,0,.5)),
     var(--book-color);
 }
 
-.book-has-cover-art:not(.book-front-cover) .spine-title,
-.book-has-cover-art:not(.book-front-cover) .spine-author,
-.book-has-cover-art:not(.book-front-cover) .spine-ornament,
 .book-has-cover-art .owned-dot {
   position: relative;
   z-index: 2;
-}
-
-.book-has-cover-art:not(.book-front-cover) .spine-title,
-.book-has-cover-art:not(.book-front-cover) .spine-author {
-  text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.6);
 }
 
 /* Face-out books use the actual cover image and consume more shelf width. */
@@ -89,6 +86,6 @@
 
 @media (max-width: 650px) {
   .book-has-cover-art:not(.book-front-cover) .shelf-cover-art {
-    opacity: .38;
+    opacity: .58;
   }
 }
