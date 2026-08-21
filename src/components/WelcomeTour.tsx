@@ -16,9 +16,9 @@ const steps = [
   },
   {
     icon: <LayoutGrid size={24} />,
-    eyebrow: 'FILTER WITHOUT REARRANGING',
-    title: 'Switch between reading views.',
-    body: 'Use All, Reading, To Read, Read, and DNF above the bookcase. A filter only changes what you see — your custom shelf arrangement stays untouched.',
+    eyebrow: 'BUILD MORE THAN ONE SHOWCASE',
+    title: 'Every shelf style and reading view remembers its own layout.',
+    body: 'Classic, Cube, Floating, and future shelf styles are saved independently. All, Reading, To Read, Read, and DNF can also each have their own arrangement, so switching views never destroys another showcase you built.',
   },
   {
     icon: <BookOpen size={24} />,
