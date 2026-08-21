@@ -26,6 +26,7 @@ import { SettingsPage } from './components/SettingsPage'
 import { ShelfAppearanceControl } from './components/ShelfAppearanceControl'
 import { WelcomeTour } from './components/WelcomeTour'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
+import { loadShelfCountForStyle, loadShelfStyle, saveShelfCountForStyle } from './lib/customizationRuntime'
 import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
@@ -97,13 +98,14 @@ function loadDetailsDisplay(): BookDetailsDisplay {
 }
 
 function loadShelfCount() {
+  let fallback = 3
   try {
     const saved = Number(localStorage.getItem(shelfCountKey))
-    if (Number.isInteger(saved) && saved >= 2 && saved <= 6) return saved
+    if (Number.isInteger(saved) && saved >= 2 && saved <= 6) fallback = saved
   } catch {
     // Use the cozy three-shelf default.
   }
-  return 3
+  return loadShelfCountForStyle(loadShelfStyle(), fallback)
 }
 
 function loadBoolean(key: string, fallback: boolean) {
@@ -254,10 +256,7 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
   function changeShelfCount(nextCount: number) {
     const clamped = Math.max(2, Math.min(6, nextCount))
     setShelfCount(clamped)
-    setBooks((current) => current.map((book) => ({
-      ...book,
-      shelfIndex: Math.min(book.shelfIndex ?? 0, clamped - 1),
-    })))
+    saveShelfCountForStyle(loadShelfStyle(), clamped)
   }
 
   function closeTour() {
@@ -478,7 +477,7 @@ function BookDetails({
             {readingStatuses.map((status) => <option key={status}>{status}</option>)}
           </select>
         </label>
-        <p>Status controls the bookshelf filters. Changing it will not move the book from the shelf where you placed it.</p>
+        <p>Status controls which reading-view shelves include this book. Each saved shelf style and reading view keeps its own arrangement.</p>
       </div>
 
       <ShelfAppearanceControl book={book} onUpdate={onUpdate} />
