@@ -25,6 +25,7 @@ import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
 
 const shelfOrder: ReadingStatus[] = ['Currently Reading', 'Read', 'Want to Read']
 const storageKey = 'shelfie-books-v1'
+const detailsDisplayKey = 'shelfie-book-details-display-v1'
 const palette = [
   ['#6b4327', '#e3b064'],
   ['#26384c', '#ddad66'],
@@ -37,6 +38,7 @@ const palette = [
 
 type View = 'shelf' | 'collection' | 'discover'
 type AddBookOptions = { status: ReadingStatus; owned: boolean; format: BookFormat }
+type BookDetailsDisplay = 'side' | 'card'
 
 function loadLibrary(): Book[] {
   try {
@@ -64,6 +66,14 @@ function loadLibrary(): Book[] {
   return sampleBooks
 }
 
+function loadDetailsDisplay(): BookDetailsDisplay {
+  try {
+    return localStorage.getItem(detailsDisplayKey) === 'card' ? 'card' : 'side'
+  } catch {
+    return 'side'
+  }
+}
+
 function colorsFor(seed: string) {
   const total = [...seed].reduce((sum, char) => sum + char.charCodeAt(0), 0)
   const [color, accent] = palette[total % palette.length]
@@ -78,6 +88,8 @@ function money(value?: number) {
 export function App() {
   const [books, setBooks] = useState<Book[]>(loadLibrary)
   const [selectedBookId, setSelectedBookId] = useState(sampleBooks[2].id)
+  const [detailsDisplay, setDetailsDisplay] = useState<BookDetailsDisplay>(loadDetailsDisplay)
+  const [detailCardOpen, setDetailCardOpen] = useState(false)
   const [view, setView] = useState<View>('shelf')
   const [largeText, setLargeText] = useState(false)
   const [glowFocus, setGlowFocus] = useState(true)
@@ -93,6 +105,11 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(books))
   }, [books])
+
+  useEffect(() => {
+    localStorage.setItem(detailsDisplayKey, detailsDisplay)
+    if (detailsDisplay === 'side') setDetailCardOpen(false)
+  }, [detailsDisplay])
 
   const selectedBook = books.find((book) => book.id === selectedBookId) ?? books[0]
 
@@ -135,6 +152,11 @@ export function App() {
 
   function updateBook(id: string, patch: Partial<Book>) {
     setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
+  }
+
+  function selectShelfBook(id: string) {
+    setSelectedBookId(id)
+    if (detailsDisplay === 'card') setDetailCardOpen(true)
   }
 
   function reorderBook(draggedId: string, targetId: string | null, targetStatus: ReadingStatus) {
@@ -223,6 +245,7 @@ export function App() {
   function openBook(id: string) {
     setSelectedBookId(id)
     setView('shelf')
+    if (detailsDisplay === 'card') setDetailCardOpen(true)
   }
 
   const titles: Record<View, { eyebrow: string; title: string }> = {
@@ -246,10 +269,11 @@ export function App() {
         </nav>
 
         <div className="settings-card">
-          <div className="settings-title"><Settings2 size={17} /> Accessibility</div>
+          <div className="settings-title"><Settings2 size={17} /> Display & accessibility</div>
           <Toggle label="Larger text" value={largeText} onChange={setLargeText} />
           <Toggle label="High contrast" value={highContrast} onChange={setHighContrast} />
           <Toggle label="Glow on focus" value={glowFocus} onChange={setGlowFocus} />
+          <DetailsDisplayPicker value={detailsDisplay} onChange={setDetailsDisplay} />
         </div>
       </aside>
 
@@ -276,7 +300,8 @@ export function App() {
             filtered={filtered}
             selectedBook={selectedBook}
             glowFocus={glowFocus}
-            onSelect={setSelectedBookId}
+            detailsDisplay={detailsDisplay}
+            onSelect={selectShelfBook}
             onUpdate={updateBook}
             onReorder={reorderBook}
           />
@@ -306,6 +331,10 @@ export function App() {
           onAdd={addBook}
         />
       )}
+
+      {detailsDisplay === 'card' && detailCardOpen && selectedBook && (
+        <BookDetailsModal book={selectedBook} onUpdate={updateBook} onClose={() => setDetailCardOpen(false)} />
+      )}
     </main>
   )
 }
@@ -315,6 +344,7 @@ function ShelfView({
   filtered,
   selectedBook,
   glowFocus,
+  detailsDisplay,
   onSelect,
   onUpdate,
   onReorder,
@@ -323,6 +353,7 @@ function ShelfView({
   filtered: Book[]
   selectedBook?: Book
   glowFocus: boolean
+  detailsDisplay: BookDetailsDisplay
   onSelect: (id: string) => void
   onUpdate: (id: string, patch: Partial<Book>) => void
   onReorder: (draggedId: string, targetId: string | null, targetStatus: ReadingStatus) => void
@@ -376,7 +407,7 @@ function ShelfView({
 
       <div className="shelf-drag-hint">Grab a book to rearrange it. Drop it on another shelf to change its reading status.</div>
 
-      <div className="layout">
+      <div className={`layout ${detailsDisplay === 'card' ? 'layout-full-shelf' : ''}`}>
         <section className="bookcase" aria-label="Virtual bookshelf">
           <div className="bookcase-frame">
             {shelfOrder.map((status) => {
@@ -418,7 +449,7 @@ function ShelfView({
                         onDragEnd={clearDragState}
                         onClick={() => onSelect(book.id)}
                         aria-label={`${book.title} by ${book.author}. Drag to rearrange.`}
-                        title="Drag to rearrange"
+                        title={detailsDisplay === 'card' ? 'Click for book details · drag to rearrange' : 'Drag to rearrange'}
                       >
                         {book.owned && <span className="owned-dot" title="Owned" />}
                         <span className="spine-ornament">✦</span>
@@ -434,15 +465,23 @@ function ShelfView({
           </div>
         </section>
 
-        {selectedBook && <BookDetails book={selectedBook} onUpdate={onUpdate} />}
+        {detailsDisplay === 'side' && selectedBook && <BookDetails book={selectedBook} onUpdate={onUpdate} />}
       </div>
     </>
   )
 }
 
-function BookDetails({ book, onUpdate }: { book: Book; onUpdate: (id: string, patch: Partial<Book>) => void }) {
+function BookDetails({
+  book,
+  onUpdate,
+  variant = 'side',
+}: {
+  book: Book
+  onUpdate: (id: string, patch: Partial<Book>) => void
+  variant?: BookDetailsDisplay
+}) {
   return (
-    <aside className="details-panel">
+    <aside className={`details-panel ${variant === 'card' ? 'details-card-mode' : ''}`}>
       <div className="detail-header">
         {book.coverUrl ? (
           <img className="mini-cover cover-image" src={book.coverUrl} alt={`Cover of ${book.title}`} />
@@ -516,6 +555,28 @@ function BookDetails({ book, onUpdate }: { book: Book; onUpdate: (id: string, pa
         <button className="secondary">Open book journal</button>
       </div>
     </aside>
+  )
+}
+
+function BookDetailsModal({
+  book,
+  onUpdate,
+  onClose,
+}: {
+  book: Book
+  onUpdate: (id: string, patch: Partial<Book>) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="modal-backdrop book-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="book-detail-modal" role="dialog" aria-modal="true" aria-label={`Details for ${book.title}`}>
+        <div className="modal-header">
+          <div><p className="eyebrow">BOOK DETAILS</p><h2>{book.title}</h2></div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close book details"><X /></button>
+        </div>
+        <BookDetails book={book} onUpdate={onUpdate} variant="card" />
+      </section>
+    </div>
   )
 }
 
@@ -726,6 +787,41 @@ function AddBookModal({
 
 function isAlreadyInLibrary(result: BookSearchResult, books: Book[]) {
   return books.some((book) => book.externalId === result.key || (book.isbn && result.isbn && book.isbn === result.isbn))
+}
+
+function DetailsDisplayPicker({
+  value,
+  onChange,
+}: {
+  value: BookDetailsDisplay
+  onChange: (value: BookDetailsDisplay) => void
+}) {
+  return (
+    <div className="details-display-setting">
+      <span className="details-display-label">Book details display</span>
+      <div className="details-display-options" role="radiogroup" aria-label="Book details display style">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === 'side'}
+          className={`details-display-option ${value === 'side' ? 'active' : ''}`}
+          onClick={() => onChange('side')}
+        >
+          Side panel
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === 'card'}
+          className={`details-display-option ${value === 'card' ? 'active' : ''}`}
+          onClick={() => onChange('card')}
+        >
+          Pop-up card
+        </button>
+      </div>
+      <small className="details-display-note">Card mode gives the bookshelf the full content width.</small>
+    </div>
+  )
 }
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
