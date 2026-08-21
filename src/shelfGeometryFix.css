@@ -1,0 +1,44 @@
+/* Geometry contract for saved shelf layouts.
+   Absolute-positioned books must not be allowed to collapse their shelf containers. */
+
+.bookcase-stage,
+.bookcase-stage > .bookcase-frame,
+.freeform-bookcase .shelf-row,
+.freeform-bookcase .books,
+.freeform-bookcase .cube-books {
+  min-width: 0;
+}
+
+.bookcase-stage,
+.bookcase-stage > .bookcase-frame {
+  width: 100%;
+}
+
+.freeform-bookcase .books,
+.freeform-bookcase .cube-books {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Floating shelves have no outer frame/border, so absolute-positioned children provide no intrinsic
+   width. Explicit stretching prevents a saved layout from collapsing the shelf to a sliver. */
+.shelf-style-floating .bookcase-frame,
+.shelf-style-floating .shelf-row,
+.shelf-style-floating .books {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.shelf-style-floating .wood-shelf {
+  width: auto;
+  min-width: 0;
+}
+
+/* Saved layouts use physical pixel coordinates. Keep the positioning surface stable and let the
+   shelf itself own clipping/scroll behavior instead of shrinking around absolute children. */
+.free-layout-zone {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
