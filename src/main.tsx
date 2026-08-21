@@ -21,6 +21,7 @@ import './shelfCleanup.css'
 import './shelfProfiles.css'
 import './realBookCovers.css'
 import './shelfHoverCard.css'
+import './shelfGeometryFix.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
