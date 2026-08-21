@@ -1,0 +1,333 @@
+/* Freeform organize mode: physics-ish placement, snapping preview, rotation and stacking. */
+
+.organize-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.organize-button,
+.organize-done,
+.organize-reset {
+  min-height: 38px;
+  border-radius: 11px;
+  padding: 8px 13px;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+
+.organize-button,
+.organize-done {
+  border: 1px solid color-mix(in srgb, var(--theme-accent, #d79b46) 45%, transparent);
+  background: color-mix(in srgb, var(--theme-accent, #d79b46) 15%, transparent);
+  color: var(--theme-accent-2, #f0c477);
+}
+
+.organize-button:hover,
+.organize-done:hover {
+  background: color-mix(in srgb, var(--theme-accent, #d79b46) 23%, transparent);
+}
+
+.organize-reset {
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.025);
+  color: #8f7a61;
+}
+
+.organize-mode-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin: 0 0 14px;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--theme-accent, #d79b46) 28%, transparent);
+  border-radius: 15px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--theme-accent, #d79b46) 10%, transparent), rgba(255,255,255,.018));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.018);
+}
+
+.organize-mode-bar > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.organize-mode-bar > div:first-child strong {
+  color: var(--theme-accent-2, #f0c477);
+  font-family: Georgia, serif;
+  font-size: 15px;
+}
+
+.organize-mode-bar > div:first-child span,
+.organize-hint {
+  color: var(--theme-muted, #8b765d);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.book-transform-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.book-transform-controls > span {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 3px;
+  color: #d7c19f;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.book-transform-controls button {
+  min-height: 32px;
+  border: 1px solid rgba(239,197,127,.13);
+  border-radius: 9px;
+  padding: 6px 8px;
+  background: rgba(255,255,255,.025);
+  color: #bba384;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.book-transform-controls button:hover {
+  border-color: color-mix(in srgb, var(--theme-accent, #d79b46) 45%, transparent);
+  color: var(--theme-accent-2, #f0c477);
+  background: color-mix(in srgb, var(--theme-accent, #d79b46) 9%, transparent);
+}
+
+.layout-organizing {
+  grid-template-columns: 1fr !important;
+}
+
+.bookcase-organizing {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.organize-zone {
+  cursor: crosshair;
+}
+
+.organize-zone::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed color-mix(in srgb, var(--theme-accent, #d79b46) 19%, transparent);
+  border-radius: 8px;
+  opacity: .34;
+  z-index: 0;
+}
+
+.free-layout-zone {
+  position: relative;
+  overflow: visible;
+}
+
+.free-layout-zone .free-placed-book {
+  position: absolute;
+  left: var(--book-x);
+  bottom: var(--book-y);
+  margin: 0;
+  z-index: 3;
+  transform: rotate(var(--book-rotation, 0deg));
+  transform-origin: bottom center;
+  transition: filter .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+
+.free-layout-zone .free-placed-book:hover,
+.free-layout-zone .free-placed-book:focus-visible,
+.free-layout-zone .free-placed-book.selected {
+  transform: translateY(-3px) rotate(var(--book-rotation, 0deg));
+}
+
+.bookcase-organizing .free-layout-zone .free-placed-book:hover,
+.bookcase-organizing .free-layout-zone .free-placed-book:focus-visible,
+.bookcase-organizing .free-layout-zone .free-placed-book.selected {
+  transform: rotate(var(--book-rotation, 0deg));
+}
+
+.free-layout-zone .free-placed-book.book-horizontal {
+  width: var(--book-height);
+  min-width: var(--book-height);
+  height: var(--book-width);
+  min-height: var(--book-width);
+  padding: 5px 10px;
+  flex-direction: row;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 3px 5px 5px 3px;
+  transform-origin: center center;
+}
+
+.free-layout-zone .free-placed-book.book-horizontal .spine-title,
+.free-layout-zone .free-placed-book.book-horizontal .spine-author {
+  writing-mode: horizontal-tb;
+  transform: none;
+  max-height: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.free-layout-zone .free-placed-book.book-horizontal .spine-title {
+  max-width: 72%;
+  font-size: 10px;
+}
+
+.free-layout-zone .free-placed-book.book-horizontal .spine-author,
+.free-layout-zone .free-placed-book.book-horizontal .spine-ornament {
+  display: none;
+}
+
+.organize-book {
+  cursor: grab;
+  touch-action: none;
+}
+
+.organize-book:active {
+  cursor: grabbing;
+}
+
+.bookcase-organizing .organize-book.selected {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--theme-accent-2, #f0c477) 85%, white 10%),
+    0 0 22px color-mix(in srgb, var(--theme-accent, #d79b46) 48%, transparent),
+    inset -4px 0 8px rgba(0,0,0,.25);
+  z-index: 8;
+}
+
+.placement-ghost {
+  pointer-events: none;
+  position: absolute;
+  left: var(--ghost-x);
+  bottom: var(--ghost-y);
+  width: var(--ghost-width);
+  height: var(--ghost-height);
+  z-index: 20;
+  border: 2px dashed rgba(135,205,139,.9);
+  border-radius: 5px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.09), transparent 17%, transparent 82%, rgba(0,0,0,.18)),
+    color-mix(in srgb, var(--ghost-color) 45%, transparent);
+  transform: rotate(var(--ghost-rotation, 0deg));
+  transform-origin: bottom center;
+  box-shadow: 0 0 18px rgba(112,190,122,.2);
+  opacity: .72;
+}
+
+.placement-ghost.horizontal {
+  width: var(--ghost-height);
+  height: var(--ghost-width);
+  transform-origin: center center;
+}
+
+.placement-ghost.invalid {
+  border-color: rgba(223,104,87,.95);
+  background: rgba(184,65,51,.2);
+  box-shadow: 0 0 18px rgba(196,67,52,.18);
+}
+
+.placement-ghost.valid::after,
+.placement-ghost.invalid::after {
+  position: absolute;
+  top: -23px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  border-radius: 99px;
+  background: rgba(10,8,7,.91);
+  font-size: 8px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.placement-ghost.valid::after {
+  content: "SNAP";
+  color: #9bd29d;
+}
+
+.placement-ghost.invalid::after {
+  content: "BLOCKED";
+  color: #e6a096;
+}
+
+/* In free layout mode, the zone itself owns the height and books no longer participate in flex sizing. */
+.freeform-bookcase:not(.shelf-style-cube) .books.free-layout-zone {
+  min-height: 244px;
+  height: 244px;
+  padding: 0 8px;
+}
+
+.shelf-style-cube .cube-books.free-layout-zone {
+  min-height: 270px;
+  height: 270px;
+  padding: 0 10px 7px;
+}
+
+.shelf-style-cube .cube-books.free-layout-zone .book-spine {
+  max-height: none;
+}
+
+.library-filter:disabled {
+  opacity: .34;
+  cursor: not-allowed;
+}
+
+@media (max-width: 920px) {
+  .organize-mode-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .book-transform-controls {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 650px) {
+  .organize-actions {
+    width: 100%;
+  }
+
+  .organize-button,
+  .organize-done,
+  .organize-reset {
+    flex: 1 1 auto;
+  }
+
+  .organize-mode-bar {
+    padding: 11px;
+  }
+
+  .book-transform-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .book-transform-controls > span {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+
+  .book-transform-controls button {
+    min-height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .free-layout-zone .free-placed-book,
+  .organize-button,
+  .organize-done,
+  .organize-reset {
+    transition: none;
+  }
+}
