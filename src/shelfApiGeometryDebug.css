@@ -1,0 +1,30 @@
+/* API-era shelf cleanup.
+   A front-cover JPEG is not a spine scan. Keep cover art face-out only so the virtual spine stays
+   visually honest and cannot disguise the physical rectangle used by Organize Mode. */
+
+.freeform-bookcase .book-has-cover-art:not(.book-front-cover) .shelf-cover-art {
+  display: none !important;
+}
+
+.freeform-bookcase .book-has-cover-art:not(.book-front-cover) {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.09), transparent 16%, transparent 82%, rgba(0,0,0,.3)),
+    var(--book-color) !important;
+}
+
+/* Temporary testing aid: in Organize Mode, make the exact CSS collision rectangle visible.
+   If two outlines touch, Shelfie's boxes touch. If the outline is larger than the visible book,
+   we can immediately see which CSS rule is responsible. */
+.bookcase-organizing .free-layout-zone .free-placed-book {
+  outline: 1px dashed rgba(111, 194, 255, .48);
+  outline-offset: 0;
+}
+
+.bookcase-organizing .free-layout-zone .free-placed-book.selected {
+  outline: 2px solid rgba(255, 200, 91, .9);
+}
+
+/* Cover art is only meant to be displayed when a book is intentionally face-out. */
+.freeform-bookcase .book-front-cover .shelf-cover-art {
+  display: block !important;
+}
