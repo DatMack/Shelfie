@@ -1,0 +1,69 @@
+.shelf-appearance-card {
+  display: grid;
+  gap: 12px;
+}
+
+.appearance-help {
+  margin: 0 !important;
+  color: #9f8a70 !important;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.appearance-help strong {
+  color: #e6bd7c;
+}
+
+.appearance-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.appearance-option {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid rgba(239, 197, 127, .12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .025);
+  color: #ad987c;
+  text-align: left;
+}
+
+.appearance-option:hover,
+.appearance-option:focus-visible {
+  outline: none;
+  border-color: rgba(239, 197, 127, .34);
+  color: #efd09a;
+}
+
+.appearance-option.active {
+  border-color: rgba(239, 197, 127, .42);
+  background: rgba(213, 158, 73, .13);
+  color: #ffd99a;
+  box-shadow: inset 0 0 0 1px rgba(255, 216, 154, .04);
+}
+
+.appearance-option svg {
+  flex: 0 0 auto;
+}
+
+.appearance-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appearance-note {
+  color: #76624d;
+  line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+  .appearance-options {
+    grid-template-columns: 1fr;
+  }
+}
