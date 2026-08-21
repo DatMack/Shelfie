@@ -29,8 +29,9 @@ const filters: Array<{ value: ShelfFilter; label: string }> = [
 ]
 
 const cubeColumns = 3
-// v2 intentionally drops the old organize-mode coordinates that captured flexbox display gaps.
-const layoutProfilesKey = 'shelfie-layout-profiles-v2'
+// v3 resets the old cube coordinates because v2 measured the outer cubby while books were
+// positioned inside the padded inner book area. That mismatch felt like an invisible collision box.
+const layoutProfilesKey = 'shelfie-layout-profiles-v3'
 const snapDistance = 32
 const collisionTolerance = 3
 const packedBookGap = 1
@@ -98,9 +99,18 @@ function shelfCoverUrl(book: Book) {
   return book.displayCoverUrl ?? book.coverUrl
 }
 
-function bookDimensions(book: Book, index: number) {
+function stableBookVariation(book: Book) {
+  const seed = `${book.id}:${book.title}`
+  let total = 0
+  for (let index = 0; index < seed.length; index += 1) total += seed.charCodeAt(index)
+  return (total % 3) * 3
+}
+
+function bookDimensions(book: Book, _index: number) {
   const pageWidthBoost = Math.min(12, Math.floor((book.pages || 0) / 180) * 2)
-  const smallVariation = (index % 3) * 3
+  // Size must belong to the book, not its position. The old index-based variation meant moving a
+  // book could change the collision box by a few pixels after every reorder.
+  const smallVariation = stableBookVariation(book)
 
   let height = 202 + smallVariation
   let width = 66 + Math.round(pageWidthBoost * 0.55)
@@ -139,7 +149,6 @@ function bookDimensions(book: Book, index: number) {
     width += 5
   }
 
-  // A face-out book consumes realistic shelf width instead of behaving like a thin spine.
   if (effectiveDisplayStyle(book) === 'Front Cover') {
     width = Math.max(width, Math.round(height * 0.62))
   }
@@ -152,6 +161,19 @@ function visualDimensions(book: Book, index: number, orientation: BookOrientatio
   return orientation === 'horizontal'
     ? { width: base.height, height: base.width }
     : { width: base.width, height: base.height }
+}
+
+function renderedDimensions(book: Book, index: number, orientation: BookOrientation) {
+  const element = Array.from(document.querySelectorAll<HTMLElement>('[data-shelf-book-id]'))
+    .find((candidate) => candidate.dataset.shelfBookId === book.id)
+
+  // offsetWidth/offsetHeight are the actual untransformed CSS box. This keeps collision math in sync
+  // with cover/front-cover CSS, borders, format sizing, and horizontal orientation.
+  if (element && element.offsetWidth > 0 && element.offsetHeight > 0) {
+    return { width: element.offsetWidth, height: element.offsetHeight }
+  }
+
+  return visualDimensions(book, index, orientation)
 }
 
 function defaultPlacement(index: number, shelfIndex: number, cubeColumn?: number): BookPlacement {
@@ -362,8 +384,6 @@ export function FreeShelfView({
       zones.set(zoneKey(shelfIndex, Number.isInteger(cubeColumn) ? cubeColumn : undefined), zone)
     })
 
-    // Keep already customized books exactly where the reader put them. The cursor only finds
-    // the right edge so newly-added books can join the shelf without overwriting custom work.
     profileBooks.forEach((book, index) => {
       const placement = next[book.id]
       if (!placement) return
@@ -371,7 +391,7 @@ export function FreeShelfView({
       const cubeColumn = shelfStyle === 'cube' ? placement.cubeColumn : undefined
       const key = zoneKey(shelfIndex, cubeColumn)
       const zoneWidth = zones.get(key)?.getBoundingClientRect().width ?? (shelfStyle === 'cube' ? 420 : 1200)
-      const dims = visualDimensions(book, index, placement.orientation)
+      const dims = renderedDimensions(book, index, placement.orientation)
       const right = placement.x * zoneWidth + dims.width + packedBookGap
       cursors.set(key, Math.max(cursors.get(key) ?? 8, right))
     })
@@ -390,7 +410,7 @@ export function FreeShelfView({
         return defaultCubeColumnForPacking(candidate, shelfIndex) === cubeColumn
       })
       const index = Math.max(0, peers.findIndex((candidate) => candidate.id === book.id))
-      const dims = visualDimensions(book, index, 'upright')
+      const dims = renderedDimensions(book, index, 'upright')
       const maxLeft = Math.max(0, zoneWidth - dims.width - 6)
       const left = clamp(cursors.get(key) ?? 8, 0, maxLeft)
 
@@ -450,7 +470,7 @@ export function FreeShelfView({
     const rect = zone.getBoundingClientRect()
     const current = freePlacement[book.id] ?? defaultPlacement(0, currentShelfFor(book), shelfStyle === 'cube' ? cubeColumnFor(book) : undefined)
     const bookIndex = getBookIndexInZone(book, shelfIndex, cubeColumn)
-    const dims = visualDimensions(book, bookIndex, current.orientation)
+    const dims = renderedDimensions(book, bookIndex, current.orientation)
     const maxLeft = Math.max(0, rect.width - dims.width)
     let left = clamp(clientX - rect.left - dragOffset.current.x, 0, maxLeft)
 
@@ -462,14 +482,12 @@ export function FreeShelfView({
       return placement.cubeColumn === cubeColumn
     })
 
-    // Snap to the shelf walls or directly against another book. We choose the nearest candidate
-    // instead of applying every snap in sequence, which makes tightly-packed shelves predictable.
     const snapCandidates = [0, maxLeft]
     for (const other of zoneBooks) {
       const otherPlacement = freePlacement[other.id]
       if (!otherPlacement) continue
       const otherIndex = getBookIndexInZone(other, shelfIndex, cubeColumn)
-      const otherDims = visualDimensions(other, otherIndex, otherPlacement.orientation)
+      const otherDims = renderedDimensions(other, otherIndex, otherPlacement.orientation)
       const otherLeft = otherPlacement.x * rect.width
       snapCandidates.push(clamp(otherLeft + otherDims.width, 0, maxLeft))
       snapCandidates.push(clamp(otherLeft - dims.width, 0, maxLeft))
@@ -485,7 +503,7 @@ export function FreeShelfView({
       const otherPlacement = freePlacement[other.id]
       if (!otherPlacement || otherPlacement.orientation !== 'horizontal') continue
       const otherIndex = getBookIndexInZone(other, shelfIndex, cubeColumn)
-      const otherDims = visualDimensions(other, otherIndex, otherPlacement.orientation)
+      const otherDims = renderedDimensions(other, otherIndex, otherPlacement.orientation)
       const otherLeft = otherPlacement.x * rect.width
       if (horizontalOverlap(left, dims.width, otherLeft, otherDims.width) > 8) {
         supportY = Math.max(supportY, otherPlacement.y + otherDims.height)
@@ -498,7 +516,7 @@ export function FreeShelfView({
       const otherPlacement = freePlacement[other.id]
       if (!otherPlacement) continue
       const otherIndex = getBookIndexInZone(other, shelfIndex, cubeColumn)
-      const otherDims = visualDimensions(other, otherIndex, otherPlacement.orientation)
+      const otherDims = renderedDimensions(other, otherIndex, otherPlacement.orientation)
       const otherLeft = otherPlacement.x * rect.width
       const overlapX = horizontalOverlap(left, dims.width, otherLeft, otherDims.width)
       if (overlapX <= collisionTolerance) continue
@@ -644,12 +662,14 @@ export function FreeShelfView({
               <div
                 className={`cube-cell ${lastRow ? 'cube-last-row' : ''} ${lastColumn ? 'cube-last-column' : ''} ${organizeMode ? 'organize-zone' : ''}`}
                 key={`${shelfIndex}:${cubeColumn}`}
-                data-shelf-zone="true"
-                data-shelf-index={shelfIndex}
-                data-cube-column={cubeColumn}
                 aria-label={`Cubby row ${shelfIndex + 1}, column ${cubeColumn + 1}`}
               >
-                <div className={`cube-books ${freeLayoutActive ? 'free-layout-zone' : ''}`}>
+                <div
+                  className={`cube-books ${freeLayoutActive ? 'free-layout-zone' : ''}`}
+                  data-shelf-zone="true"
+                  data-shelf-index={shelfIndex}
+                  data-cube-column={cubeColumn}
+                >
                   {cellBooks.length === 0 && !organizeMode && <span className="cube-empty">Empty cubby</span>}
                   {cellBooks.map((book, index) => renderBook(book, index, shelfIndex, cubeColumn))}
                   {renderPreview(shelfIndex, cubeColumn)}
@@ -724,7 +744,7 @@ export function FreeShelfView({
         <section className="organize-mode-bar" aria-label="Shelf organization controls">
           <div>
             <strong>Organizing {activeStyleName} · {activeFilterLabel}</strong>
-            <span>Books can sit flush together now. Drag one near a neighbor and it will snap against its edge; use Pack together anytime to rebuild a tight starting row.</span>
+            <span>Drag books using their real rendered size. Cube collisions now use the same inner shelf area the books are actually positioned inside.</span>
           </div>
           {activeBook ? (
             <div className="book-transform-controls" aria-label={`Position controls for ${activeBook.title}`}>
