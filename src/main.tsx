@@ -16,6 +16,7 @@ import './customization.css'
 import './shelfRealism.css'
 import './organizeShelf.css'
 import './shelfCleanup.css'
+import './shelfProfiles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
