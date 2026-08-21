@@ -27,6 +27,16 @@ import { ShelfAppearanceControl } from './components/ShelfAppearanceControl'
 import { WelcomeTour } from './components/WelcomeTour'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
 import { loadShelfCountForStyle, loadShelfStyle, saveShelfCountForStyle } from './lib/customizationRuntime'
+import {
+  addCatalogBookToMyShelf,
+  bookPatchToDatabase,
+  findOrCreateCatalogBook,
+  importLocalBook,
+  loadMyLibrary,
+  mapLibraryRows,
+  saveShelfOrder,
+  updateMyBook,
+} from './lib/shelfieData'
 import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
@@ -138,8 +148,9 @@ function money(value?: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 }
 
-export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
+export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => void | Promise<void> }) {
   const [books, setBooks] = useState<Book[]>(loadLibrary)
+  const [libraryReady, setLibraryReady] = useState(false)
   const [selectedBookId, setSelectedBookId] = useState(sampleBooks[2].id)
   const [detailsDisplay, setDetailsDisplay] = useState<BookDetailsDisplay>(loadDetailsDisplay)
   const [detailCardOpen, setDetailCardOpen] = useState(false)
@@ -158,8 +169,31 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
   const [discoverSeed, setDiscoverSeed] = useState('')
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(books))
-  }, [books])
+    let cancelled = false
+    async function connectLibrary() {
+      const remoteRows = await loadMyLibrary(userId)
+      if (cancelled) return
+      if (remoteRows.length > 0) {
+        setBooks(mapLibraryRows(remoteRows))
+      } else if (books.length > 0) {
+        await Promise.all(books.map((book) => importLocalBook(userId, book)))
+        const importedRows = await loadMyLibrary(userId)
+        if (!cancelled) setBooks(mapLibraryRows(importedRows))
+      } else {
+        setBooks([])
+      }
+      if (!cancelled) setLibraryReady(true)
+    }
+    connectLibrary().catch((error) => {
+      console.error('Shelfie could not load the Supabase library.', error)
+      if (!cancelled) setLibraryReady(true)
+    })
+    return () => { cancelled = true }
+  }, [userId])
+
+  useEffect(() => {
+    if (libraryReady) localStorage.setItem(storageKey, JSON.stringify(books))
+  }, [books, libraryReady])
 
   useEffect(() => {
     localStorage.setItem(detailsDisplayKey, detailsDisplay)
@@ -217,6 +251,10 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
 
   function updateBook(id: string, patch: Partial<Book>) {
     setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
+    const databasePatch = bookPatchToDatabase(patch)
+    if (Object.keys(databasePatch).length > 0) {
+      void updateMyBook(id, databasePatch).catch((error) => console.error('Could not save the book update.', error))
+    }
   }
 
   function selectShelfBook(id: string) {
@@ -237,6 +275,7 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
         const targetIndex = remaining.findIndex((book) => book.id === targetId)
         if (targetIndex >= 0) {
           remaining.splice(targetIndex, 0, movedBook)
+          void persistShelfOrder(remaining)
           return remaining
         }
       }
@@ -249,8 +288,18 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
         }
       }
       remaining.splice(insertIndex, 0, movedBook)
+      void persistShelfOrder(remaining)
       return remaining
     })
+  }
+
+  async function persistShelfOrder(nextBooks: Book[]) {
+    await saveShelfOrder(nextBooks.map((book, index) => ({
+      userBookId: book.id,
+      shelfIndex: book.shelfIndex ?? 0,
+      shelfColumn: 0,
+      shelfPosition: index,
+    })))
   }
 
   function changeShelfCount(nextCount: number) {
@@ -268,7 +317,7 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
     setTourOpen(false)
   }
 
-  function addBook(result: BookSearchResult, options: AddBookOptions) {
+  async function addBook(result: BookSearchResult, options: AddBookOptions) {
     const duplicate = books.find(
       (book) => book.externalId === result.key || (book.isbn && result.isbn && book.isbn === result.isbn),
     )
@@ -281,8 +330,10 @@ export function App({ onSignOut }: { onSignOut?: () => void | Promise<void> }) {
     }
 
     const colors = colorsFor(result.title)
+    const catalog = await findOrCreateCatalogBook(result)
+    const userBook = await addCatalogBookToMyShelf({ userId, bookId: catalog.id, ...options })
     const newBook: Book = {
-      id: crypto.randomUUID(),
+      id: userBook.id,
       title: result.title,
       author: result.author,
       status: options.status,
