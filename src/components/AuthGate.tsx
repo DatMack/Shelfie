@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { BookOpen, Check, LoaderCircle, LockKeyhole, Sparkles } from 'lucide-react'
+import { BookOpen, Check, LoaderCircle, LockKeyhole, LogOut, Sparkles } from 'lucide-react'
 import { App } from '../App'
 import { getSession, signInWithEmail, signOut, signUpWithEmail } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -58,7 +58,10 @@ export function AuthGate() {
 
   return (
     <>
-      <App onSignOut={handleSignOut} />
+      <App />
+      <button className="auth-signout-chip" type="button" onClick={() => void handleSignOut()}>
+        <LogOut size={15} /> Sign out
+      </button>
       <ReaderProgressCard />
       <DailyQuestBoard />
     </>
