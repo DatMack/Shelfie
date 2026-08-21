@@ -27,5 +27,8 @@
 .profile-signout { width: 100%; margin-top: 12px; border: 0; background: transparent; color: #a98978; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px; }
 .profile-error { color: #e58f82; font-size: 12px; }
 .profile-drawer { left: 239px; }
+.sidebar.profile-open { z-index: 10000; overflow: visible; }
+.profile-drawer { z-index: 10001; }
+@media (max-width: 1100px) { .profile-drawer { left: 12px; width: min(440px, calc(100vw - 24px)); border-radius: 18px; } }
 @media (max-width: 760px) { .profile-drawer { left: 12px; right: 12px; bottom: 12px; width: auto; border-radius: 16px; transform-origin: bottom left; } .profile-identity { grid-template-columns: 64px 1fr; } .profile-photo-button { grid-column: 1 / -1; justify-content: center; } }
 @media (max-width: 760px) { .sidebar { display: grid; grid-template-columns: 1fr auto; } .sidebar-profile-button { grid-column: 1 / -1; } }

@@ -427,7 +427,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
   return (
     <main className={`app ${largeText ? 'large-text' : ''} ${highContrast ? 'high-contrast' : ''}`}>
-      <aside className="sidebar">
+      <aside className={profileOpen ? 'sidebar profile-open' : 'sidebar'}>
         <div className="brand"><BookOpen size={28} /><span>Shelfie</span></div>
         <p className="tagline">Your stories. Your shelf.</p>
 
