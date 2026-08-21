@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react'
+import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   Archive,
   BarChart3,
@@ -113,7 +113,7 @@ export function App() {
   }, [books])
 
   useEffect(() => {
-    if (view !== 'discover' || discoverSeed === recommendationGenre) return
+    if (view !== 'discover' || discoverSeed === recommendationGenre || discoverTerm.trim()) return
     let cancelled = false
     setDiscoverLoading(true)
     setDiscoverError('')
@@ -130,7 +130,7 @@ export function App() {
         if (!cancelled) setDiscoverLoading(false)
       })
     return () => { cancelled = true }
-  }, [view, recommendationGenre, discoverSeed, books])
+  }, [view, recommendationGenre, discoverSeed, discoverTerm, books])
 
   function updateBook(id: string, patch: Partial<Book>) {
     setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
@@ -482,7 +482,7 @@ function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: 
   )
 }
 
-function Metric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
+function Metric({ icon, label, value, detail }: { icon: ReactNode; label: string; value: string; detail: string }) {
   return <article className="metric-card"><div className="metric-icon">{icon}</div><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>
 }
 
