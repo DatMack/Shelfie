@@ -1,5 +1,6 @@
 import { CSSProperties, DragEvent, ReactNode, useMemo, useState } from 'react'
 import type { Book, ReadingStatus } from '../data/books'
+import type { ShelfFinishId, ShelfStyleId } from '../data/customization'
 
 export type ShelfFilter = 'All' | ReadingStatus
 
@@ -15,6 +16,8 @@ export function FreeShelfView({
   books,
   searchFiltered,
   shelfCount,
+  shelfStyle,
+  shelfFinish,
   selectedBook,
   glowFocus,
   detailsDisplay,
@@ -25,6 +28,8 @@ export function FreeShelfView({
   books: Book[]
   searchFiltered: Book[]
   shelfCount: number
+  shelfStyle: ShelfStyleId
+  shelfFinish: ShelfFinishId
   selectedBook?: Book
   glowFocus: boolean
   detailsDisplay: 'side' | 'card'
@@ -103,7 +108,7 @@ export function FreeShelfView({
       </div>
 
       <div className={`layout ${detailsDisplay === 'card' ? 'layout-full-shelf' : ''}`}>
-        <section className="bookcase freeform-bookcase" aria-label="Freeform virtual bookshelf">
+        <section className={`bookcase freeform-bookcase shelf-style-${shelfStyle} shelf-finish-${shelfFinish}`} aria-label="Freeform virtual bookshelf">
           <div className="bookcase-frame">
             {Array.from({ length: shelfCount }, (_, shelfIndex) => {
               const shelfBooks = visibleBooks.filter((book) => (book.shelfIndex ?? 0) === shelfIndex)
