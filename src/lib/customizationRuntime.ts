@@ -10,6 +10,7 @@ import {
 const shelfStyleKey = 'shelfie-shelf-style-v1'
 const shelfFinishKey = 'shelfie-shelf-finish-v1'
 const shelfStylePreferencesKey = 'shelfie-shelf-style-preferences-v1'
+const layoutProfilesKey = 'shelfie-layout-profiles-v1'
 const siteThemeKey = 'shelfie-site-theme-v1'
 export const customizationEvent = 'shelfie-customization-changed'
 
@@ -19,6 +20,9 @@ type ShelfStylePreference = {
 }
 
 type ShelfStylePreferences = Partial<Record<ShelfStyleId, ShelfStylePreference>>
+
+type StoredPlacement = { shelfIndex?: number; [key: string]: unknown }
+type StoredLayouts = Record<string, Record<string, StoredPlacement>>
 
 function readChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -42,6 +46,32 @@ function loadStylePreferences(): ShelfStylePreferences {
 
 function saveStylePreferences(preferences: ShelfStylePreferences) {
   try { localStorage.setItem(shelfStylePreferencesKey, JSON.stringify(preferences)) } catch { /* Keep the in-memory choice. */ }
+}
+
+function clampLayoutsForStyle(style: ShelfStyleId, shelfCount: number) {
+  try {
+    const saved = localStorage.getItem(layoutProfilesKey)
+    if (!saved) return
+    const layouts = JSON.parse(saved) as StoredLayouts
+    const prefix = `${style}::`
+    let changed = false
+
+    Object.entries(layouts).forEach(([key, placements]) => {
+      if (!key.startsWith(prefix)) return
+      Object.values(placements).forEach((placement) => {
+        if (typeof placement.shelfIndex !== 'number') return
+        const nextIndex = Math.min(Math.max(0, placement.shelfIndex), shelfCount - 1)
+        if (nextIndex !== placement.shelfIndex) {
+          placement.shelfIndex = nextIndex
+          changed = true
+        }
+      })
+    })
+
+    if (changed) localStorage.setItem(layoutProfilesKey, JSON.stringify(layouts))
+  } catch {
+    // A bad local layout should never block a normal shelf-count change.
+  }
 }
 
 export function loadShelfStyle(): ShelfStyleId {
@@ -118,6 +148,7 @@ export function saveShelfCountForStyle(style: ShelfStyleId, value: number) {
   const preferences = loadStylePreferences()
   preferences[style] = { ...preferences[style], shelfCount: count }
   saveStylePreferences(preferences)
+  clampLayoutsForStyle(style, count)
 }
 
 export function saveSiteTheme(value: SiteThemeId) {
