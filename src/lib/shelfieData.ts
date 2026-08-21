@@ -1,5 +1,5 @@
 import type { BookSearchResult } from '../services/openLibrary'
-import type { BookFormat, ReadingStatus } from '../data/books'
+import type { Book, BookFormat, ReadingStatus } from '../data/books'
 import { supabase } from './supabase'
 
 function requireSupabase() {
@@ -28,6 +28,104 @@ function formatToDatabase(format?: BookFormat) {
     Other: 'other',
   }
   return map[format]
+}
+
+function statusFromDatabase(status: string): ReadingStatus {
+  const map: Record<string, ReadingStatus> = {
+    want_to_read: 'Want to Read',
+    currently_reading: 'Currently Reading',
+    read: 'Read',
+    dnf: 'DNF',
+  }
+  return map[status] ?? 'Want to Read'
+}
+
+function formatFromDatabase(format?: string | null): BookFormat | undefined {
+  const map: Record<string, BookFormat> = {
+    hardcover: 'Hardcover',
+    paperback: 'Paperback',
+    mass_market: 'Mass Market',
+    ebook: 'Ebook',
+    audiobook: 'Audiobook',
+    other: 'Other',
+  }
+  return format ? map[format] : undefined
+}
+
+function displayStyleFromDatabase(style?: string | null): Book['displayStyle'] {
+  const map: Record<string, NonNullable<Book['displayStyle']>> = {
+    auto: 'Auto',
+    spine: 'Spine',
+    front_cover: 'Front Cover',
+    cassette: 'Cassette',
+    cassette_case: 'Cassette Case',
+    audio_case: 'Audio Case',
+    e_reader: 'E-reader',
+    digital_tile: 'Digital Tile',
+  }
+  return style ? map[style] : undefined
+}
+
+function colorsFor(seed: string) {
+  const palette = [
+    ['#6b4327', '#e3b064'], ['#26384c', '#ddad66'], ['#35563d', '#f3c66c'],
+    ['#6c342f', '#e6b96d'], ['#544c34', '#d3b86a'], ['#694027', '#f0bb6e'],
+  ]
+  const total = [...seed].reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  const [color, accent] = palette[total % palette.length]
+  return { color, accent }
+}
+
+export function mapLibraryRows(rows: any[]): Book[] {
+  return rows.map((row) => {
+    const catalog = row.book ?? {}
+    const colors = colorsFor(catalog.title ?? row.id)
+    return {
+      id: row.id,
+      title: catalog.title ?? 'Untitled',
+      author: Array.isArray(catalog.authors) && catalog.authors.length ? catalog.authors.join(', ') : 'Unknown author',
+      status: statusFromDatabase(row.status),
+      shelfIndex: row.shelf_index ?? 0,
+      color: colors.color,
+      accent: colors.accent,
+      pages: catalog.page_count ?? 0,
+      currentPage: row.current_page ?? 0,
+      rating: row.rating ?? undefined,
+      genre: catalog.genres?.[0] ?? 'Uncategorized',
+      subjects: catalog.subjects ?? [],
+      year: catalog.publication_year ?? (Number(String(catalog.published_date ?? '').slice(0, 4)) || new Date().getFullYear()),
+      description: catalog.description ?? undefined,
+      publisher: catalog.publisher ?? undefined,
+      language: catalog.language ?? undefined,
+      series: catalog.series_name ?? undefined,
+      seriesNumber: catalog.series_position ?? undefined,
+      coverUrl: catalog.cover_url ?? undefined,
+      isbn: catalog.isbn13 ?? catalog.isbn10 ?? undefined,
+      externalId: catalog.external_id ?? undefined,
+      source: catalog.external_source === 'openlibrary' ? 'openlibrary' : 'manual',
+      owned: row.owned,
+      format: formatFromDatabase(row.format),
+      condition: row.condition ? row.condition.split('_').map((part: string) => part[0].toUpperCase() + part.slice(1)).join(' ') : undefined,
+      purchasePrice: row.purchase_price ?? undefined,
+      estimatedValue: row.manual_estimated_value ?? undefined,
+      valueLow: row.manual_value_low ?? undefined,
+      valueHigh: row.manual_value_high ?? undefined,
+      specialEdition: row.special_edition,
+      signed: row.signed,
+      firstEdition: row.first_edition,
+      gifted: row.gifted,
+      purchaseDate: row.purchase_date ?? undefined,
+      storageLocation: row.storage_location ?? undefined,
+      acquiredFrom: row.acquired_from ?? undefined,
+      favorite: row.is_favorite,
+      moodTags: row.mood_tags ?? [],
+      customTags: row.custom_tags ?? [],
+      rereadCount: row.reread_count ?? 0,
+      displayStyle: displayStyleFromDatabase(row.display_style),
+      displayEditionId: row.display_edition_id ?? undefined,
+      displayCoverUrl: row.display_cover_url ?? undefined,
+    }
+  })
 }
 
 export async function loadMyLibrary(userId: string) {
@@ -127,6 +225,53 @@ export async function addCatalogBookToMyShelf({
 
   if (error) throw error
   return data
+}
+
+export async function importLocalBook(userId: string, book: Book) {
+  const result: BookSearchResult = {
+    key: book.externalId ?? `local:${book.id}`,
+    title: book.title,
+    author: book.author,
+    coverUrl: book.coverUrl,
+    year: book.year,
+    pages: book.pages,
+    isbn: book.isbn,
+    genre: book.genre,
+    subjects: book.subjects,
+    publisher: book.publisher,
+    language: book.language,
+  }
+  const catalog = await findOrCreateCatalogBook(result)
+  const client = requireSupabase()
+  const { data, error } = await client.from('user_books').upsert({
+    user_id: userId,
+    book_id: catalog.id,
+    status: statusToDatabase(book.status),
+    current_page: book.currentPage ?? 0,
+    rating: book.rating ?? null,
+    owned: book.owned ?? false,
+    format: book.owned ? formatToDatabase(book.format) : null,
+    shelf_index: book.shelfIndex ?? 0,
+  }, { onConflict: 'user_id,book_id' }).select('*').single()
+  if (error) throw error
+  return data
+}
+
+export function bookPatchToDatabase(patch: Partial<Book>) {
+  const output: Record<string, unknown> = {}
+  if (patch.status !== undefined) output.status = statusToDatabase(patch.status)
+  if (patch.currentPage !== undefined) output.current_page = patch.currentPage
+  if (patch.rating !== undefined) output.rating = patch.rating
+  if (patch.owned !== undefined) output.owned = patch.owned
+  if (patch.format !== undefined) output.format = formatToDatabase(patch.format)
+  if (patch.purchasePrice !== undefined) output.purchase_price = patch.purchasePrice
+  if (patch.estimatedValue !== undefined) output.manual_estimated_value = patch.estimatedValue
+  if (patch.favorite !== undefined) output.is_favorite = patch.favorite
+  if (patch.customTags !== undefined) output.custom_tags = patch.customTags
+  if (patch.moodTags !== undefined) output.mood_tags = patch.moodTags
+  if (patch.rereadCount !== undefined) output.reread_count = patch.rereadCount
+  if (patch.shelfIndex !== undefined) output.shelf_index = patch.shelfIndex
+  return output
 }
 
 export async function updateMyBook(userBookId: string, patch: Record<string, unknown>) {

@@ -288,7 +288,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $$;
+as $$
 declare
   q record;
   new_progress integer;
@@ -358,7 +358,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$;
+as $$
 begin
   perform public.shelfie_apply_daily_quest_event(new.user_id, new.activity_date, 'reading_session', 1);
   perform public.shelfie_apply_daily_quest_event(new.user_id, new.activity_date, 'minutes_read', coalesce(new.minutes_read, 0));
@@ -376,7 +376,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$;
+as $$
 begin
   perform public.shelfie_apply_daily_quest_event(new.user_id, new.activity_date, 'progress_log', 1);
   return new;
@@ -392,7 +392,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$;
+as $$
 begin
   perform public.shelfie_apply_daily_quest_event(new.user_id, new.activity_date, 'journal_entry', 1);
   return new;

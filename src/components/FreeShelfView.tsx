@@ -563,6 +563,7 @@ export function FreeShelfView({
 
     const book = profileBooks.find((candidate) => candidate.id === draggingBookId)
     if (!book) return
+    const draggedBook = book
 
     function move(event: PointerEvent) {
       const element = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null
@@ -571,7 +572,7 @@ export function FreeShelfView({
         setPlacementPreview(null)
         return
       }
-      setPlacementPreview(evaluatePreview(book, zone, event.clientX))
+      setPlacementPreview(evaluatePreview(draggedBook, zone, event.clientX))
     }
 
     function finish() {

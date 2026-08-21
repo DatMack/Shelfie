@@ -54,7 +54,7 @@ export function AuthGate() {
 
   if (!session) return <WelcomeScreen onAuthenticated={setSession} />
 
-  return <App onSignOut={handleSignOut} />
+  return <App userId={session.user.id} onSignOut={handleSignOut} />
 }
 
 function WelcomeScreen({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {
