@@ -1,0 +1,206 @@
+.daily-quest-board {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 24;
+  width: min(340px, calc(100vw - 36px));
+  border: 1px solid rgba(239,197,127,.2);
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(160deg, rgba(42,28,18,.98), rgba(16,11,8,.98));
+  box-shadow: 0 22px 60px rgba(0,0,0,.42), inset 0 0 0 1px rgba(255,255,255,.02);
+  color: #ead9bf;
+}
+
+.daily-quest-board.collapsed {
+  width: 250px;
+}
+
+.daily-quest-toggle {
+  width: 100%;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  color: #e9cfaa;
+  background: linear-gradient(90deg, rgba(210,145,62,.12), rgba(255,255,255,.02));
+  border-bottom: 1px solid rgba(239,197,127,.1);
+}
+
+.daily-quest-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.daily-quest-title > div:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.daily-quest-title small {
+  font-size: 9px;
+  letter-spacing: .16em;
+  color: #9f805a;
+}
+
+.daily-quest-title strong {
+  font-family: Georgia, serif;
+  font-size: 15px;
+  color: #f4dfbf;
+}
+
+.daily-quest-spark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #2a170a;
+  background: radial-gradient(circle at 35% 30%, #ffe7ad, #d69a43 58%, #7f4819 100%);
+  box-shadow: 0 0 18px rgba(232,169,79,.24);
+}
+
+.daily-quest-body {
+  padding: 12px;
+}
+
+.daily-quest-headline {
+  margin: 0 2px 11px;
+  color: #aa9274;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.daily-quest-list {
+  display: grid;
+  gap: 8px;
+}
+
+.daily-quest {
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(239,197,127,.11);
+  border-radius: 13px;
+  background: rgba(255,255,255,.025);
+}
+
+.daily-quest-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #efbf73;
+  background: rgba(211,150,70,.1);
+}
+
+.daily-quest-copy {
+  min-width: 0;
+}
+
+.daily-quest-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.daily-quest-name strong {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  color: #efd7b3;
+}
+
+.daily-quest-name span {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 800;
+  color: #efb45e;
+}
+
+.daily-quest-copy p {
+  margin: 3px 0 7px;
+  color: #9d876c;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.daily-quest-progress {
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #38271b;
+}
+
+.daily-quest-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b8792c, #efbd67);
+}
+
+.daily-quest-copy > small {
+  display: block;
+  margin-top: 4px;
+  color: #74614d;
+  font-size: 8px;
+}
+
+.daily-quest-bonus {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px dashed rgba(239,197,127,.2);
+  border-radius: 12px;
+  color: #efbd70;
+  background: rgba(210,145,62,.06);
+}
+
+.daily-quest-bonus > div {
+  display: grid;
+  gap: 2px;
+}
+
+.daily-quest-bonus strong {
+  font-size: 11px;
+}
+
+.daily-quest-bonus span {
+  font-size: 9px;
+  color: #9e8566;
+}
+
+.daily-quest-note {
+  display: block;
+  margin-top: 9px;
+  color: #705e4a;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+@media (max-width: 1180px) {
+  .daily-quest-board.open {
+    width: 310px;
+  }
+}
+
+@media (max-width: 820px) {
+  .daily-quest-board,
+  .daily-quest-board.collapsed,
+  .daily-quest-board.open {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: calc(100% - 24px);
+    margin: 12px;
+    z-index: 2;
+  }
+}
