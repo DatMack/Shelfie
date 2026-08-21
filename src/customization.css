@@ -1,0 +1,471 @@
+/* Earned Shelfie customization: shelf structures, materials, and whole-site color profiles. */
+
+/* Settings catalog */
+.earned-customization-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid rgba(239,197,127,.2);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(213,158,73,.11), rgba(255,255,255,.018));
+  color: #e8bd77;
+}
+
+.earned-customization-banner > div { display: grid; gap: 4px; }
+.earned-customization-banner strong { font-family: Georgia, serif; font-size: 16px; color: #f2d49f; }
+.earned-customization-banner span { color: #9d876a; font-size: 12px; line-height: 1.5; }
+
+.customization-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 0;
+}
+
+.customization-card {
+  position: relative;
+  min-width: 0;
+  min-height: 142px;
+  display: grid;
+  grid-template-rows: 42px 1fr auto;
+  gap: 9px;
+  border: 1px solid rgba(239,197,127,.12);
+  border-radius: 15px;
+  padding: 12px;
+  background: rgba(255,255,255,.02);
+  color: #ad987b;
+  text-align: left;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.customization-card.unlocked:hover {
+  transform: translateY(-2px);
+  border-color: rgba(239,197,127,.34);
+  background: rgba(213,158,73,.055);
+}
+
+.customization-card.active {
+  border-color: rgba(239,197,127,.52);
+  background: rgba(213,158,73,.1);
+  box-shadow: inset 0 0 0 1px rgba(239,197,127,.08), 0 8px 24px rgba(0,0,0,.16);
+}
+
+.customization-card.locked {
+  cursor: not-allowed;
+  opacity: .64;
+}
+
+.customization-preview {
+  height: 42px;
+  display: grid;
+  grid-template-columns: 1.35fr .9fr .7fr;
+  overflow: hidden;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,.06);
+  box-shadow: inset 0 1px rgba(255,255,255,.05);
+}
+
+.customization-preview i { display: block; min-width: 0; }
+.customization-copy { min-width: 0; display: grid; align-content: start; gap: 4px; }
+.customization-copy strong { color: #ddc5a2; font-family: Georgia, serif; font-size: 14px; }
+.customization-card.active .customization-copy strong { color: #f2ce8f; }
+.customization-copy small { color: #7f6c56; font-size: 10px; line-height: 1.38; }
+
+.customization-unlock {
+  min-height: 22px;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgba(255,255,255,.035);
+  color: #7c6953;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.customization-unlock.unlocked {
+  background: rgba(121,156,105,.1);
+  color: #a9c493;
+}
+
+/* Shared shelf-material variables */
+.freeform-bookcase {
+  --shelf-frame: #4a2c17;
+  --shelf-frame-top: #5a351c;
+  --shelf-frame-bottom: #2b170c;
+  --shelf-face-top: #7a4c27;
+  --shelf-face-mid: #4c2a16;
+  --shelf-face-bottom: #2b170d;
+  --shelf-edge: #9b6538;
+  --shelf-cavity: #120b07;
+  --shelf-shell: #2a170c;
+}
+
+.freeform-bookcase .bookcase-frame {
+  border-color: var(--shelf-frame);
+  border-top-color: var(--shelf-frame-top);
+  border-bottom-color: var(--shelf-frame-bottom);
+  background: linear-gradient(var(--shelf-cavity), color-mix(in srgb, var(--shelf-cavity) 82%, black));
+}
+
+.freeform-bookcase.bookcase {
+  background: linear-gradient(160deg, var(--shelf-shell), color-mix(in srgb, var(--shelf-shell) 55%, black));
+}
+
+.freeform-bookcase .wood-shelf {
+  background: linear-gradient(var(--shelf-face-top) 0 18%, var(--shelf-face-mid) 22% 64%, var(--shelf-face-bottom) 66% 100%);
+  border-top-color: var(--shelf-edge);
+}
+
+.shelf-finish-walnut {
+  --shelf-frame: #382419;
+  --shelf-frame-top: #4b3020;
+  --shelf-frame-bottom: #1c120d;
+  --shelf-face-top: #6b4933;
+  --shelf-face-mid: #40291d;
+  --shelf-face-bottom: #1a110d;
+  --shelf-edge: #815c41;
+  --shelf-cavity: #0e0b09;
+  --shelf-shell: #241711;
+}
+
+.shelf-finish-oak {
+  --shelf-frame: #8b6034;
+  --shelf-frame-top: #a8753e;
+  --shelf-frame-bottom: #4d3119;
+  --shelf-face-top: #c18c50;
+  --shelf-face-mid: #8d5f31;
+  --shelf-face-bottom: #4b3019;
+  --shelf-edge: #d5a568;
+  --shelf-cavity: #1c130d;
+  --shelf-shell: #674522;
+}
+
+.shelf-finish-mahogany {
+  --shelf-frame: #5d2921;
+  --shelf-frame-top: #78352a;
+  --shelf-frame-bottom: #2c1512;
+  --shelf-face-top: #924936;
+  --shelf-face-mid: #602b24;
+  --shelf-face-bottom: #2a1311;
+  --shelf-edge: #a95b43;
+  --shelf-cavity: #150c0b;
+  --shelf-shell: #391a16;
+}
+
+.shelf-finish-ebony {
+  --shelf-frame: #242321;
+  --shelf-frame-top: #373430;
+  --shelf-frame-bottom: #090908;
+  --shelf-face-top: #46413b;
+  --shelf-face-mid: #282522;
+  --shelf-face-bottom: #0c0b0a;
+  --shelf-edge: #625a50;
+  --shelf-cavity: #080807;
+  --shelf-shell: #171614;
+}
+
+.shelf-finish-marble {
+  --shelf-frame: #bbb3a7;
+  --shelf-frame-top: #ddd6cc;
+  --shelf-frame-bottom: #777068;
+  --shelf-face-top: #e5dfd6;
+  --shelf-face-mid: #b8b0a6;
+  --shelf-face-bottom: #77716b;
+  --shelf-edge: #f3eee7;
+  --shelf-cavity: #2a2725;
+  --shelf-shell: #918a82;
+}
+
+.shelf-finish-brass {
+  --shelf-frame: #5f4b28;
+  --shelf-frame-top: #8a6a32;
+  --shelf-frame-bottom: #241d13;
+  --shelf-face-top: #a7833d;
+  --shelf-face-mid: #675127;
+  --shelf-face-bottom: #292015;
+  --shelf-edge: #c4a45d;
+  --shelf-cavity: #11100d;
+  --shelf-shell: #30291a;
+}
+
+.shelf-finish-gold {
+  --shelf-frame: #8f6418;
+  --shelf-frame-top: #c18b26;
+  --shelf-frame-bottom: #3a2609;
+  --shelf-face-top: #d9a53b;
+  --shelf-face-mid: #95651b;
+  --shelf-face-bottom: #382307;
+  --shelf-edge: #f0cf73;
+  --shelf-cavity: #100b05;
+  --shelf-shell: #30210a;
+}
+
+.shelf-finish-silver {
+  --shelf-frame: #707980;
+  --shelf-frame-top: #9ca6ae;
+  --shelf-frame-bottom: #32373b;
+  --shelf-face-top: #abb4ba;
+  --shelf-face-mid: #6f797f;
+  --shelf-face-bottom: #30363a;
+  --shelf-edge: #d7dfe3;
+  --shelf-cavity: #101417;
+  --shelf-shell: #293036;
+}
+
+.shelf-finish-glass {
+  --shelf-frame: #557078;
+  --shelf-frame-top: #8eb0b7;
+  --shelf-frame-bottom: #26363b;
+  --shelf-face-top: #91b8bf;
+  --shelf-face-mid: #526e75;
+  --shelf-face-bottom: #24353a;
+  --shelf-edge: #c5e4e7;
+  --shelf-cavity: #0c1619;
+  --shelf-shell: #17272c;
+}
+
+.shelf-finish-mythic {
+  --shelf-frame: #58467c;
+  --shelf-frame-top: #8069ad;
+  --shelf-frame-bottom: #211a31;
+  --shelf-face-top: #9c83c8;
+  --shelf-face-mid: #5c497f;
+  --shelf-face-bottom: #21192e;
+  --shelf-edge: #d7c56f;
+  --shelf-cavity: #0d0915;
+  --shelf-shell: #261c39;
+}
+
+/* Starter shelf structures */
+.shelf-style-cube .bookcase-frame {
+  border-width: 15px;
+}
+
+.shelf-style-cube .books {
+  padding-inline: 18px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 168px,
+    color-mix(in srgb, var(--shelf-frame) 88%, black) 168px,
+    color-mix(in srgb, var(--shelf-frame) 88%, black) 178px,
+    transparent 178px,
+    transparent 184px
+  );
+}
+
+.shelf-style-cube .wood-shelf {
+  height: 22px;
+}
+
+.shelf-style-floating.bookcase {
+  padding: 4px 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.shelf-style-floating .bookcase-frame {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.shelf-style-floating .shelf-row {
+  margin-bottom: 30px;
+  padding-inline: 28px;
+  background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 68%);
+}
+
+.shelf-style-floating .wood-shelf {
+  height: 18px;
+  margin-inline: -2px;
+  border-radius: 3px;
+  box-shadow: 0 10px 15px rgba(0,0,0,.55), 0 2px 0 color-mix(in srgb, var(--shelf-edge) 60%, transparent);
+}
+
+/* Future structural classes are ready for the moment they unlock. */
+.shelf-style-ladder { transform: perspective(1400px) rotateX(.35deg); }
+.shelf-style-ladder .shelf-row { margin-inline: 12px; }
+.shelf-style-arch .bookcase-frame { border-radius: 74px 74px 18px 18px; }
+.shelf-style-builtin.bookcase { border-radius: 8px; padding: 8px; }
+.shelf-style-builtin .bookcase-frame { border-width: 26px 30px; border-radius: 5px; }
+.shelf-style-reading-nook .bookcase-frame { box-shadow: inset 0 0 80px rgba(205,157,88,.1), inset 0 0 35px rgba(0,0,0,.78); }
+.shelf-style-grand-hall .bookcase-frame { border-width: 24px; box-shadow: inset 0 0 65px rgba(0,0,0,.8), 0 0 0 2px color-mix(in srgb, var(--shelf-edge) 30%, transparent); }
+.shelf-style-enchanted .bookcase-frame { box-shadow: inset 0 0 55px rgba(93,75,155,.2), inset 0 0 35px rgba(0,0,0,.78), 0 0 30px rgba(108,82,177,.12); }
+.shelf-style-dragon-hoard .bookcase-frame { border-style: ridge; box-shadow: inset 0 0 70px rgba(135,80,20,.18), inset 0 0 45px rgba(0,0,0,.85); }
+.shelf-style-eternal .bookcase-frame { box-shadow: inset 0 0 80px rgba(142,102,194,.2), inset 0 0 40px rgba(0,0,0,.88), 0 0 45px rgba(231,197,104,.12); }
+
+/* Whole-site color profiles */
+html[data-shelfie-theme='cozy-amber'] {
+  --theme-bg: #0b0806;
+  --theme-bg-2: #1a110b;
+  --theme-panel: #21160f;
+  --theme-surface: #2a1c13;
+  --theme-accent: #d79b46;
+  --theme-accent-2: #f0c477;
+  --theme-text: #f5dfbd;
+  --theme-muted: #a58d6f;
+}
+
+html[data-shelfie-theme='midnight-ink'] {
+  --theme-bg: #070b12;
+  --theme-bg-2: #101a28;
+  --theme-panel: #0e1723;
+  --theme-surface: #172437;
+  --theme-accent: #5f8fc3;
+  --theme-accent-2: #9cc1e4;
+  --theme-text: #e2edf7;
+  --theme-muted: #879db3;
+}
+
+html[data-shelfie-theme='forest-study'] {
+  --theme-bg: #07100b;
+  --theme-bg-2: #102017;
+  --theme-panel: #0d1a13;
+  --theme-surface: #17281e;
+  --theme-accent: #779e69;
+  --theme-accent-2: #b2c78e;
+  --theme-text: #e5e2c9;
+  --theme-muted: #8c9b7f;
+}
+
+html[data-shelfie-theme='rosewood'] {
+  --theme-bg: #10070a;
+  --theme-bg-2: #251014;
+  --theme-panel: #1c0d11;
+  --theme-surface: #31171c;
+  --theme-accent: #b0646d;
+  --theme-accent-2: #db9ba2;
+  --theme-text: #f0dbd4;
+  --theme-muted: #a58986;
+}
+
+html[data-shelfie-theme='moonlight'] {
+  --theme-bg: #080b10;
+  --theme-bg-2: #171d27;
+  --theme-panel: #11161e;
+  --theme-surface: #202733;
+  --theme-accent: #91a1ba;
+  --theme-accent-2: #c7d1df;
+  --theme-text: #edf0f5;
+  --theme-muted: #929baa;
+}
+
+html[data-shelfie-theme='royal-gold'] {
+  --theme-bg: #090704;
+  --theme-bg-2: #1d1608;
+  --theme-panel: #161005;
+  --theme-surface: #2c210a;
+  --theme-accent: #d2a733;
+  --theme-accent-2: #f0d16d;
+  --theme-text: #fff0b6;
+  --theme-muted: #aa9561;
+}
+
+html[data-shelfie-theme='arcane-violet'] {
+  --theme-bg: #090611;
+  --theme-bg-2: #191126;
+  --theme-panel: #130d1f;
+  --theme-surface: #271b3a;
+  --theme-accent: #9168c8;
+  --theme-accent-2: #c3a3e8;
+  --theme-text: #eee1fb;
+  --theme-muted: #9d8aae;
+}
+
+html[data-shelfie-theme='frosted-silver'] {
+  --theme-bg: #070a0c;
+  --theme-bg-2: #151c21;
+  --theme-panel: #10161a;
+  --theme-surface: #202a31;
+  --theme-accent: #9eb2c0;
+  --theme-accent-2: #d4e0e7;
+  --theme-text: #edf4f7;
+  --theme-muted: #92a0a8;
+}
+
+html[data-shelfie-theme='eternal'] {
+  --theme-bg: #07040b;
+  --theme-bg-2: #1b1026;
+  --theme-panel: #12091c;
+  --theme-surface: #29163a;
+  --theme-accent: #b18ad8;
+  --theme-accent-2: #efd276;
+  --theme-text: #f3e7ff;
+  --theme-muted: #a897b2;
+}
+
+html[data-shelfie-theme] body {
+  background: radial-gradient(circle at top, var(--theme-bg-2) 0%, var(--theme-bg) 58%, #050404 100%);
+}
+
+html[data-shelfie-theme] .app {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--theme-panel) 96%, black), color-mix(in srgb, var(--theme-bg) 94%, black));
+}
+
+html[data-shelfie-theme] .sidebar {
+  border-right-color: color-mix(in srgb, var(--theme-accent) 24%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-panel) 96%, black), color-mix(in srgb, var(--theme-bg) 92%, black));
+}
+
+html[data-shelfie-theme] .brand,
+html[data-shelfie-theme] h1,
+html[data-shelfie-theme] .settings-section-heading,
+html[data-shelfie-theme] .card-heading,
+html[data-shelfie-theme] .library-summary strong {
+  color: var(--theme-accent-2);
+}
+
+html[data-shelfie-theme] .eyebrow,
+html[data-shelfie-theme] .settings-intro-icon,
+html[data-shelfie-theme] .library-filter.active {
+  color: var(--theme-accent);
+}
+
+html[data-shelfie-theme] .primary {
+  background: linear-gradient(135deg, var(--theme-accent-2), var(--theme-accent));
+  color: color-mix(in srgb, var(--theme-bg) 90%, black);
+}
+
+html[data-shelfie-theme] nav button:hover,
+html[data-shelfie-theme] .nav-active,
+html[data-shelfie-theme] .library-filter.active {
+  background: color-mix(in srgb, var(--theme-accent) 14%, transparent);
+  color: var(--theme-accent-2);
+}
+
+html[data-shelfie-theme] .search-box:focus-within,
+html[data-shelfie-theme] .customization-card.active {
+  border-color: color-mix(in srgb, var(--theme-accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 9%, transparent);
+}
+
+html[data-shelfie-theme] .settings-section,
+html[data-shelfie-theme] .settings-intro,
+html[data-shelfie-theme] .detail-header,
+html[data-shelfie-theme] .detail-card {
+  border-color: color-mix(in srgb, var(--theme-accent) 14%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--theme-surface) 34%, transparent), rgba(255,255,255,.012));
+}
+
+@media (max-width: 960px) {
+  .customization-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .customization-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customization-card { transition: none; }
+}
