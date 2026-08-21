@@ -1,0 +1,40 @@
+/* Keep the bookshelf clean by default. Editing affordances only appear in Organize Mode. */
+
+/* The preview mug/plant/book stack were scaffolding for future decor placement. */
+.decor-preview-stack,
+.decor-preview-mug,
+.decor-preview-plant {
+  display: none !important;
+}
+
+/* Keep a thin physical top surface without reserving a large empty decor stage. */
+.bookcase-top-decor {
+  min-height: 18px !important;
+  margin-top: 0;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+/* Side decoration rails stay invisible during normal browsing. */
+.bookcase-side-decor {
+  visibility: hidden;
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity .16s ease;
+}
+
+/* Only reveal future decor placement hints while the user is organizing. */
+.bookcase-organizing .bookcase-side-decor {
+  visibility: visible;
+  opacity: .5 !important;
+}
+
+.bookcase-organizing .bookcase-top-decor {
+  min-height: 24px !important;
+}
+
+@media (max-width: 650px) {
+  .bookcase-organizing .bookcase-side-decor {
+    display: none;
+  }
+}
