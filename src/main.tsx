@@ -24,7 +24,7 @@ import './realBookCovers.css'
 import './shelfHoverCard.css'
 import './shelfGeometryFix.css'
 import './shelfApiGeometryDebug.css'
-import './smartSpines.css'
+import './customSpines.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

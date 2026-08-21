@@ -1,0 +1,65 @@
+.freeform-bookcase .book-leather-spine {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.14), transparent 10%, transparent 86%, rgba(0,0,0,.42)),
+    repeating-linear-gradient(7deg, rgba(255,255,255,.025) 0 1px, rgba(0,0,0,.025) 1px 3px),
+    var(--book-color);
+  border-color: color-mix(in srgb, var(--book-accent) 28%, rgba(255,255,255,.1));
+  box-shadow: inset 3px 0 4px rgba(255,255,255,.08), inset -5px 0 8px rgba(0,0,0,.35), 0 7px 10px rgba(0,0,0,.3);
+}
+
+.freeform-bookcase .book-leather-spine::before,
+.freeform-bookcase .book-leather-spine::after {
+  border-color: color-mix(in srgb, var(--book-accent) 60%, transparent);
+  opacity: .75;
+}
+
+.freeform-bookcase .book-leather-spine .spine-title {
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0,0,0,.75);
+}
+
+.freeform-bookcase .book-custom-spine { overflow: hidden; }
+.freeform-bookcase .book-custom-spine .shelf-cover-art {
+  display: block !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--spine-position-x) var(--spine-position-y);
+  transform: scale(var(--spine-zoom));
+  transform-origin: var(--spine-position-x) var(--spine-position-y);
+  filter: none;
+  opacity: 1;
+}
+.freeform-bookcase .book-custom-spine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.15), transparent 13%, transparent 83%, rgba(0,0,0,.38));
+}
+.freeform-bookcase .book-custom-spine .spine-title,
+.freeform-bookcase .book-custom-spine .spine-author,
+.freeform-bookcase .book-custom-spine .spine-ornament { display: none; }
+
+.spine-editor { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(218,175,108,.16); display: grid; gap: 12px; }
+.spine-editor-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.spine-editor-heading strong { color: #ead3ac; }
+.spine-editor-heading span { color: #89765f; font-size: 11px; }
+.spine-design-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.spine-design-button { min-height: 38px; border: 1px solid rgba(218,175,108,.16); border-radius: 8px; background: rgba(255,255,255,.025); color: #a99374; display: flex; align-items: center; justify-content: center; gap: 7px; }
+.spine-design-button.active { border-color: #c9944f; background: rgba(201,148,79,.12); color: #f0d5aa; }
+.spine-color-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.spine-color-fields label { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #a99374; font-size: 12px; }
+.spine-color-fields input[type='color'] { width: 44px; height: 34px; padding: 2px; border: 1px solid rgba(218,175,108,.2); border-radius: 7px; background: #17120e; }
+.custom-spine-controls { display: grid; gap: 10px; }
+.spine-upload-button, .spine-remove-button { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 8px; }
+.spine-upload-button { border: 1px dashed rgba(218,175,108,.38); background: rgba(218,175,108,.07); color: #e4c18d; }
+.spine-remove-button { border: 0; background: transparent; color: #a98278; }
+.spine-upload-error { margin: 0; color: #df8b7d; font-size: 12px; }
+.spine-crop-preview { position: relative; width: 78px; height: 190px; margin: 2px auto; overflow: hidden; border: 2px solid rgba(218,175,108,.35); border-radius: 6px 6px 2px 2px; background: var(--preview-color); box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+.spine-crop-preview img { width: 100%; height: 100%; object-fit: cover; }
+.spine-range { display: grid; grid-template-columns: 105px 1fr; align-items: center; gap: 9px; color: #9d896d; font-size: 11px; }
+.spine-range input { width: 100%; accent-color: #c9944f; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
