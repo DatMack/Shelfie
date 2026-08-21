@@ -19,6 +19,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { ShelfAppearanceControl } from './components/ShelfAppearanceControl'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
 import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
 
@@ -460,6 +461,8 @@ function BookDetails({ book, onUpdate }: { book: Book; onUpdate: (id: string, pa
           <div className="meta-row"><span>{book.genre}</span><span>{book.year}</span>{book.format && <span>{book.format}</span>}</div>
         </div>
       </div>
+
+      <ShelfAppearanceControl book={book} onUpdate={onUpdate} />
 
       {book.status === 'Currently Reading' && book.pages > 0 && (
         <div className="detail-card">
