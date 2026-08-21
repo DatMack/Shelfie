@@ -1,0 +1,85 @@
+import { BookOpen, ChevronLeft, ChevronRight, CircleHelp, LayoutGrid, Settings2, Sparkles, X } from 'lucide-react'
+import { useState } from 'react'
+
+const steps = [
+  {
+    icon: <BookOpen size={24} />,
+    eyebrow: 'YOUR SHELF, YOUR WAY',
+    title: 'Put any book on any shelf.',
+    body: 'Shelf position no longer decides reading status. Drag books left, right, or between shelf rows just to arrange your library the way you like.',
+  },
+  {
+    icon: <LayoutGrid size={24} />,
+    eyebrow: 'FILTER WITHOUT REARRANGING',
+    title: 'Switch between reading views.',
+    body: 'Use All, Currently Reading, Want to Read, Read, and DNF above the bookcase. A filter only changes what you see — your custom shelf arrangement stays untouched.',
+  },
+  {
+    icon: <BookOpen size={24} />,
+    eyebrow: 'EVERY BOOK HAS A HOME BASE',
+    title: 'Click a book for everything about it.',
+    body: 'Change reading status, track progress, mark ownership, choose how it looks on the shelf, and later pick the exact edition or cover you want displayed.',
+  },
+  {
+    icon: <Sparkles size={24} />,
+    eyebrow: 'READING POWERS THE GAME',
+    title: 'XP and Daily Quests stay together.',
+    body: 'Your reader level and streak live in the sidebar, with Daily Quests directly underneath. Once reading logs are live, normal reading activity will complete quests automatically.',
+  },
+  {
+    icon: <Settings2 size={24} />,
+    eyebrow: 'NOTHING SHOULD BE HIDDEN',
+    title: 'Settings explains the controls.',
+    body: 'Display choices, accessibility, shelf count, help, and account actions are grouped on one Settings page. You can replay this walkthrough there whenever you want.',
+  },
+]
+
+export function WelcomeTour({ onClose }: { onClose: () => void }) {
+  const [started, setStarted] = useState(false)
+  const [step, setStep] = useState(0)
+
+  function finish() {
+    onClose()
+  }
+
+  if (!started) {
+    return (
+      <div className="tour-backdrop" role="presentation">
+        <section className="tour-card tour-prompt" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+          <button className="tour-close" type="button" onClick={finish} aria-label="Skip walkthrough"><X size={20} /></button>
+          <div className="tour-icon"><CircleHelp size={28} /></div>
+          <p className="eyebrow">WELCOME TO SHELFIE</p>
+          <h2 id="tour-title">Want a quick rundown?</h2>
+          <p>Shelfie has a few different ways to organize, track, and customize books. This takes about a minute and shows where the important stuff lives.</p>
+          <div className="tour-actions">
+            <button className="tour-secondary" type="button" onClick={finish}>Not now</button>
+            <button className="tour-primary" type="button" onClick={() => setStarted(true)}>Show me <ChevronRight size={18} /></button>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  const current = steps[step]
+  const last = step === steps.length - 1
+
+  return (
+    <div className="tour-backdrop" role="presentation">
+      <section className="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-step-title">
+        <button className="tour-close" type="button" onClick={finish} aria-label="Close walkthrough"><X size={20} /></button>
+        <div className="tour-progress" aria-label={`Step ${step + 1} of ${steps.length}`}>
+          {steps.map((_, index) => <span key={index} className={index <= step ? 'active' : ''} />)}
+        </div>
+        <div className="tour-icon">{current.icon}</div>
+        <p className="eyebrow">{current.eyebrow}</p>
+        <h2 id="tour-step-title">{current.title}</h2>
+        <p>{current.body}</p>
+        <div className="tour-step-count">{step + 1} of {steps.length}</div>
+        <div className="tour-actions">
+          <button className="tour-secondary" type="button" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0}><ChevronLeft size={18} /> Back</button>
+          <button className="tour-primary" type="button" onClick={() => last ? finish() : setStep((value) => value + 1)}>{last ? 'Got it' : 'Next'} {!last && <ChevronRight size={18} />}</button>
+        </div>
+      </section>
+    </div>
+  )
+}
