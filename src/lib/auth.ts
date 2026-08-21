@@ -5,6 +5,11 @@ function requireSupabase() {
   return supabase
 }
 
+function authRedirectUrl() {
+  if (typeof window === 'undefined') return undefined
+  return new URL(import.meta.env.BASE_URL || '/', window.location.origin).toString()
+}
+
 export async function signUpWithEmail({
   email,
   password,
@@ -18,9 +23,10 @@ export async function signUpWithEmail({
 }) {
   const client = requireSupabase()
   const { data, error } = await client.auth.signUp({
-    email,
+    email: email.trim(),
     password,
     options: {
+      emailRedirectTo: authRedirectUrl(),
       data: {
         username: username.trim(),
         display_name: displayName?.trim() || username.trim(),
@@ -33,7 +39,7 @@ export async function signUpWithEmail({
 
 export async function signInWithEmail(email: string, password: string) {
   const client = requireSupabase()
-  const { data, error } = await client.auth.signInWithPassword({ email, password })
+  const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password })
   if (error) throw error
   return data
 }
