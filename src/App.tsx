@@ -5,31 +5,36 @@ import {
   BookOpen,
   BookPlus,
   Check,
+  ChevronDown,
   ChevronRight,
   Compass,
   DollarSign,
+  ExternalLink,
   Heart,
   Library,
   LoaderCircle,
   Search,
   Settings2,
+  ShoppingCart,
   Sparkles,
   Star,
   Trophy,
+  Trash2,
   Users,
   X,
 } from 'lucide-react'
-import { DailyQuestBoard } from './components/DailyQuestBoard'
 import { FreeShelfView } from './components/FreeShelfView'
-import { ReaderProgressCard } from './components/ReaderProgressCard'
+import { ProfileDrawer } from './components/ProfileDrawer'
 import { SettingsPage } from './components/SettingsPage'
 import { ShelfAppearanceControl } from './components/ShelfAppearanceControl'
 import { WelcomeTour } from './components/WelcomeTour'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
+import { nextBookFarewell } from './data/bookFarewells'
 import { loadShelfCountForStyle, loadShelfStyle, saveShelfCountForStyle } from './lib/customizationRuntime'
 import {
   addCatalogBookToMyShelf,
   bookPatchToDatabase,
+  deleteMyBook,
   findOrCreateCatalogBook,
   importLocalBook,
   loadMyLibrary,
@@ -37,6 +42,7 @@ import {
   saveShelfOrder,
   updateMyBook,
 } from './lib/shelfieData'
+import { enrichWithGoogleBooks } from './services/googleBooks'
 import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
@@ -148,7 +154,7 @@ function money(value?: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 }
 
-export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => void | Promise<void> }) {
+export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut }: { userId: string; userEmail?: string; fallbackName?: string; fallbackAvatar?: string; onSignOut?: () => void | Promise<void> }) {
   const [books, setBooks] = useState<Book[]>(loadLibrary)
   const [libraryReady, setLibraryReady] = useState(false)
   const [selectedBookId, setSelectedBookId] = useState(sampleBooks[2].id)
@@ -167,6 +173,11 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
   const [discoverLoading, setDiscoverLoading] = useState(false)
   const [discoverError, setDiscoverError] = useState('')
   const [discoverSeed, setDiscoverSeed] = useState('')
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
+  const [removingBook, setRemovingBook] = useState<Book | null>(null)
+  const [removalMessage, setRemovalMessage] = useState('')
+  const [removalBusy, setRemovalBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -257,6 +268,32 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
     }
   }
 
+  function requestRemoveBook(book: Book) {
+    setRemovalMessage(nextBookFarewell())
+    setRemovingBook(book)
+  }
+
+  async function confirmRemoveBook() {
+    if (!removingBook) return
+    setRemovalBusy(true)
+    try {
+      await deleteMyBook(removingBook.id)
+      setBooks((current) => current.filter((book) => book.id !== removingBook.id))
+      setSelectedBookId((current) => current === removingBook.id ? '' : current)
+      setDetailCardOpen(false)
+      setRemovingBook(null)
+    } catch (error) {
+      console.error('Could not remove the book.', error)
+    } finally {
+      setRemovalBusy(false)
+    }
+  }
+
+  function openSettingsSection(sectionId?: string) {
+    setView('settings')
+    if (sectionId) requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
   function selectShelfBook(id: string) {
     setSelectedBookId(id)
     if (detailsDisplay === 'card') setDetailCardOpen(true)
@@ -344,6 +381,7 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
       genre: result.genre || 'Uncategorized',
       subjects: result.subjects,
       publisher: result.publisher,
+      description: result.description,
       language: result.language,
       year: result.year || new Date().getFullYear(),
       coverUrl: result.coverUrl,
@@ -399,13 +437,17 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
           <button className={view === 'discover' ? 'nav-active' : ''} onClick={() => setView('discover')}><Compass size={18} /> Discover</button>
           <button><Users size={18} /> Friends <span className="nav-soon">soon</span></button>
           <button><Trophy size={18} /> Trophy Case <span className="nav-soon">soon</span></button>
-          <button className={view === 'settings' ? 'nav-active' : ''} onClick={() => setView('settings')}><Settings2 size={18} /> Settings</button>
+          <button className={view === 'settings' ? 'nav-active settings-nav-button' : 'settings-nav-button'} onClick={() => { openSettingsSection(); setSettingsMenuOpen((current) => !current) }}><Settings2 size={18} /> Settings <ChevronDown className={settingsMenuOpen ? 'settings-menu-chevron open' : 'settings-menu-chevron'} size={15} /></button>
+          <div className={settingsMenuOpen ? 'settings-section-menu open' : 'settings-section-menu'}>
+            <button onClick={() => openSettingsSection('settings-layout')}>Bookshelf layout</button>
+            <button onClick={() => openSettingsSection('settings-finish')}>Material & finish</button>
+            <button onClick={() => openSettingsSection('settings-theme')}>Color profile</button>
+            <button onClick={() => openSettingsSection('settings-accessibility')}>Accessibility</button>
+            <button onClick={() => openSettingsSection('settings-book-details')}>Book details</button>
+            <button onClick={() => openSettingsSection('settings-help')}>Help</button>
+          </div>
         </nav>
-
-        <div className="sidebar-progress-stack">
-          <ReaderProgressCard />
-          <DailyQuestBoard />
-        </div>
+        <ProfileDrawer open={profileOpen} books={books} fallbackName={fallbackName} userEmail={userEmail} fallbackAvatar={fallbackAvatar} onToggle={() => setProfileOpen((current) => !current)} onSignOut={onSignOut} />
       </aside>
 
       <section className="content">
@@ -435,7 +477,7 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
             detailsDisplay={detailsDisplay}
             onSelect={selectShelfBook}
             onReorder={reorderBook}
-            sidePanel={selectedBook ? <BookDetails book={selectedBook} onUpdate={updateBook} /> : undefined}
+            sidePanel={selectedBook ? <BookDetails book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} /> : undefined}
           />
         )}
 
@@ -452,6 +494,7 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
             onTermChange={setDiscoverTerm}
             onSearch={searchDiscover}
             onAdd={(result) => addBook(result, { status: 'Want to Read', owned: false, format: 'Hardcover' })}
+            onPurchased={(result) => addBook(result, { status: 'Want to Read', owned: true, format: 'Hardcover' })}
           />
         )}
 
@@ -468,7 +511,6 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
             onDetailsDisplayChange={setDetailsDisplay}
             onShelfCountChange={changeShelfCount}
             onStartTour={() => setTourOpen(true)}
-            onSignOut={onSignOut}
           />
         )}
       </section>
@@ -482,8 +524,10 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
       )}
 
       {detailsDisplay === 'card' && detailCardOpen && selectedBook && (
-        <BookDetailsModal book={selectedBook} onUpdate={updateBook} onClose={() => setDetailCardOpen(false)} />
+        <BookDetailsModal book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} onClose={() => setDetailCardOpen(false)} />
       )}
+
+      {removingBook && <RemoveBookDialog book={removingBook} message={removalMessage} busy={removalBusy} onCancel={() => setRemovingBook(null)} onConfirm={() => void confirmRemoveBook()} />}
 
       {tourOpen && <WelcomeTour onClose={closeTour} />}
     </main>
@@ -493,10 +537,12 @@ export function App({ userId, onSignOut }: { userId: string; onSignOut?: () => v
 function BookDetails({
   book,
   onUpdate,
+  onRemove,
   variant = 'side',
 }: {
   book: Book
   onUpdate: (id: string, patch: Partial<Book>) => void
+  onRemove: (book: Book) => void
   variant?: BookDetailsDisplay
 }) {
   return (
@@ -584,6 +630,11 @@ function BookDetails({
         <p>{book.note ?? 'Add thoughts, favorite quotes, characters, predictions, moods, or a full review whenever you want.'}</p>
         <button className="secondary">Open book journal</button>
       </div>
+
+      <div className="detail-card remove-book-card">
+        <div><strong>Remove this book</strong><p>Deletes it from your shelf, collection, and saved layouts.</p></div>
+        <button type="button" onClick={() => onRemove(book)}><Trash2 size={17} /> Part ways</button>
+      </div>
     </aside>
   )
 }
@@ -591,10 +642,12 @@ function BookDetails({
 function BookDetailsModal({
   book,
   onUpdate,
+  onRemove,
   onClose,
 }: {
   book: Book
   onUpdate: (id: string, patch: Partial<Book>) => void
+  onRemove: (book: Book) => void
   onClose: () => void
 }) {
   return (
@@ -604,7 +657,7 @@ function BookDetailsModal({
           <div><p className="eyebrow">BOOK DETAILS</p><h2>{book.title}</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close book details"><X /></button>
         </div>
-        <BookDetails book={book} onUpdate={onUpdate} variant="card" />
+        <BookDetails book={book} onUpdate={onUpdate} onRemove={onRemove} variant="card" />
       </section>
     </div>
   )
@@ -679,6 +732,7 @@ function DiscoverView({
   onTermChange,
   onSearch,
   onAdd,
+  onPurchased,
 }: {
   books: Book[]
   genre: string
@@ -689,7 +743,17 @@ function DiscoverView({
   onTermChange: (value: string) => void
   onSearch: (event: FormEvent) => void
   onAdd: (result: BookSearchResult) => void
+  onPurchased: (result: BookSearchResult) => void
 }) {
+  const [selected, setSelected] = useState<BookSearchResult | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  async function openResult(result: BookSearchResult) {
+    setSelected(result)
+    setDetailLoading(true)
+    try { setSelected(await enrichWithGoogleBooks(result)) } finally { setDetailLoading(false) }
+  }
+
   return (
     <div className="discover-page">
       <section className="discover-hero">
@@ -718,19 +782,79 @@ function DiscoverView({
           {results.slice(0, 12).map((result) => {
             const added = isAlreadyInLibrary(result, books)
             return (
-              <article className="discover-book" key={result.key}>
+              <article className="discover-book" key={result.key} onClick={() => void openResult(result)}>
                 <div className="discover-cover">{result.coverUrl ? <img src={result.coverUrl} alt="" /> : <BookOpen size={34} />}</div>
                 <div className="discover-copy">
                   <strong>{result.title}</strong>
                   <span>{result.author}</span>
                   <small>{[result.year, result.genre, result.pages ? `${result.pages} pages` : ''].filter(Boolean).join(' · ')}</small>
                 </div>
-                <button className={added ? 'added-button' : 'add-result-button'} disabled={added} onClick={() => onAdd(result)}>{added ? <><Check size={16} /> On shelf</> : <><BookPlus size={16} /> Want to Read</>}</button>
+                <button className={added ? 'added-button' : 'add-result-button'} disabled={added} onClick={(event) => { event.stopPropagation(); onAdd(result) }}>{added ? <><Check size={16} /> On shelf</> : <><BookPlus size={16} /> Want to Read</>}</button>
               </article>
             )
           })}
         </div>
       )}
+      {selected && (
+        <DiscoverBookDialog
+          book={selected}
+          loading={detailLoading}
+          added={isAlreadyInLibrary(selected, books)}
+          onClose={() => setSelected(null)}
+          onWantToRead={() => onAdd(selected)}
+          onPurchased={() => { onPurchased(selected); setSelected(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPurchased }: { book: BookSearchResult; loading: boolean; added: boolean; onClose: () => void; onWantToRead: () => void; onPurchased: () => void }) {
+  const currency = book.currencyCode ?? 'USD'
+  const price = book.retailPrice === undefined ? undefined : new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(book.retailPrice)
+  return (
+    <div className="modal-backdrop discover-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="discover-detail-modal" role="dialog" aria-modal="true" aria-label={`Discover ${book.title}`}>
+        <button className="icon-button discover-close" type="button" onClick={onClose} aria-label="Close"><X /></button>
+        <div className="discover-detail-cover">{book.largeCoverUrl || book.coverUrl ? <img src={book.largeCoverUrl ?? book.coverUrl} alt={`Cover of ${book.title}`} /> : <BookOpen size={48} />}</div>
+        <div className="discover-detail-copy">
+          <p className="eyebrow">BOOK DETAILS</p>
+          <h2>{book.title}</h2>
+          {book.subtitle && <h3>{book.subtitle}</h3>}
+          <p className="author">{book.author}</p>
+          {loading ? <p className="discover-detail-loading"><LoaderCircle className="spin" size={18} /> Checking editions and availability…</p> : (
+            <>
+              <div className="discover-detail-meta"><span>{book.publishedDate ?? book.year ?? 'Year unknown'}</span><span>{book.publisher ?? 'Publisher unknown'}</span><span>{book.pages ? `${book.pages} pages` : 'Length unknown'}</span>{book.isbn && <span>ISBN {book.isbn}</span>}</div>
+              <p className="discover-description">{book.description ?? 'A full description was not available for this edition.'}</p>
+              {book.subjects?.length ? <div className="discover-tags">{book.subjects.slice(0, 6).map((subject) => <span key={subject}>{subject}</span>)}</div> : null}
+              <div className="discover-purchase-panel">
+                <div><small>AVAILABLE GOOGLE BOOKS PRICE</small><strong>{price ?? (book.saleability === 'FREE' ? 'Free' : 'No listed price')}</strong><span>{book.buyLink ? 'Price and availability may change at checkout.' : 'No direct purchase link was returned for this edition.'}</span></div>
+                {book.buyLink && <a className="buy-book-button" href={book.buyLink} target="_blank" rel="noreferrer"><ShoppingCart size={18} /> Buy book <ExternalLink size={14} /></a>}
+              </div>
+            </>
+          )}
+          <div className="discover-detail-actions">
+            <button className={added ? 'added-button' : 'secondary'} disabled={added} onClick={onWantToRead}>{added ? <><Check size={16} /> Already on shelf</> : <><BookPlus size={16} /> Want to Read</>}</button>
+            <button className="primary" onClick={onPurchased}><Archive size={17} /> I bought this</button>
+          </div>
+          <small className="purchase-disclosure">Shelfie cannot see retailer checkout activity yet. Use “I bought this” after checkout to add the book to your collection.</small>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function RemoveBookDialog({ book, message, busy, onCancel, onConfirm }: { book: Book; message: string; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="modal-backdrop remove-book-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+      <section className="remove-book-dialog" role="alertdialog" aria-modal="true" aria-labelledby="remove-book-title">
+        <div className="parting-book" style={{ '--parting-color': book.color, '--parting-accent': book.accent } as React.CSSProperties}><span>{book.title}</span></div>
+        <p className="eyebrow">A DIFFICULT GOODBYE</p>
+        <h2 id="remove-book-title">Remove “{book.title}”?</h2>
+        <p className="parting-message">{message}</p>
+        <p className="remove-explanation">This removes it from your bookshelf, collection, and saved layouts. Your shelf can heal, eventually.</p>
+        <div className="remove-dialog-actions"><button className="secondary" type="button" onClick={onCancel}>Keep the book</button><button className="confirm-remove" type="button" disabled={busy} onClick={onConfirm}>{busy ? <LoaderCircle className="spin" size={17} /> : <Trash2 size={17} />} Remove anyway</button></div>
+      </section>
     </div>
   )
 }

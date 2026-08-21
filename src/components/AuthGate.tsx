@@ -54,7 +54,15 @@ export function AuthGate() {
 
   if (!session) return <WelcomeScreen onAuthenticated={setSession} />
 
-  return <App userId={session.user.id} onSignOut={handleSignOut} />
+  return (
+    <App
+      userId={session.user.id}
+      userEmail={session.user.email}
+      fallbackName={session.user.user_metadata.display_name ?? session.user.user_metadata.username}
+      fallbackAvatar={session.user.user_metadata.avatar_url}
+      onSignOut={handleSignOut}
+    />
+  )
 }
 
 function WelcomeScreen({ onAuthenticated }: { onAuthenticated: (session: Session) => void }) {

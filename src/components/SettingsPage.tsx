@@ -104,7 +104,7 @@ export function SettingsPage({
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="settings-layout">
         <div className="settings-section-heading">
           <LayoutGrid size={20} />
           <div><h3>Bookshelf layout</h3><p>Choose the structure of your library. Each shelf style remembers its own setup.</p></div>
@@ -121,7 +121,7 @@ export function SettingsPage({
         <div className="settings-tip"><LayoutGrid size={17} /><span>Each shelf style remembers its finish and shelf count. Inside that style, All, Reading, To Read, Read, and DNF can each have their own independently arranged showcase.</span></div>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="settings-finish">
         <div className="settings-section-heading">
           <Sparkles size={20} />
           <div><h3>Shelf material & finish</h3><p>This finish is saved to the current shelf style. Higher-level finishes become visual trophies for your reading progress.</p></div>
@@ -129,7 +129,7 @@ export function SettingsPage({
         <CustomizationGrid items={shelfFinishes} value={shelfFinish} currentLevel={currentLevel} onChange={chooseShelfFinish} />
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="settings-theme">
         <div className="settings-section-heading">
           <Palette size={20} />
           <div><h3>Shelfie color profile</h3><p>Re-theme the entire site — navigation, backgrounds, controls, highlights, and reading atmosphere.</p></div>
@@ -138,7 +138,7 @@ export function SettingsPage({
         <div className="settings-tip"><LockKeyhole size={17} /><span>{isMaxLevelTester ? 'Tester override is active at Level 100. All current level-gated cards are unlocked so you can test the full progression catalog.' : `Your current demo level is ${currentLevel}. Locked cards show exactly when they become available. Real account XP will replace this preview level when progression is connected.`}</span></div>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="settings-accessibility">
         <div className="settings-section-heading">
           <Accessibility size={20} />
           <div><h3>Display & accessibility</h3><p>Make Shelfie easier and more comfortable to use. Accessibility options are never progression-locked.</p></div>
@@ -148,7 +148,7 @@ export function SettingsPage({
         <SettingToggle label="Glow on focus" description="Adds a stronger glow when a book is selected, hovered, or keyboard-focused." value={glowFocus} onChange={onGlowFocusChange} />
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="settings-book-details">
         <div className="settings-section-heading">
           <MousePointer2 size={20} />
           <div><h3>Book details</h3><p>Choose what happens when you click a book.</p></div>
@@ -164,7 +164,7 @@ export function SettingsPage({
         <div className="settings-tip"><BookOpen size={17} /><span>Cover, edition, cassette, e-reader, and other shelf appearance options are chosen from the individual book's details.</span></div>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="settings-help">
         <div className="settings-section-heading">
           <CircleHelp size={20} />
           <div><h3>Help & walkthrough</h3><p>Need a reminder where something lives? Replay the guided tour anytime.</p></div>

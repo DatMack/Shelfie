@@ -1,0 +1,31 @@
+.sidebar { display: flex; flex-direction: column; }
+.sidebar-profile-button { margin-top: auto; width: 100%; min-height: 58px; padding: 8px; border: 1px solid transparent; border-radius: 10px; background: rgba(255,255,255,.025); color: #ead7b8; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; gap: 9px; align-items: center; text-align: left; }
+.sidebar-profile-button:hover { border-color: rgba(218,175,108,.22); background: rgba(255,255,255,.05); }
+.sidebar-profile-button > span:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.sidebar-profile-button strong, .sidebar-profile-button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-profile-button small { color: #8f7a61; font-size: 10px; }
+.sidebar-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: linear-gradient(145deg,#c98f47,#633b21); color: white; font-weight: 800; font-size: 12px; }
+.sidebar-avatar img, .profile-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
+.profile-chevron { transition: transform .25s ease; }
+.profile-chevron.open { transform: rotate(180deg); }
+.profile-drawer { position: fixed; z-index: 40; left: 230px; bottom: 14px; width: min(440px, calc(100vw - 250px)); max-height: calc(100vh - 28px); padding: 20px; overflow: auto; border: 1px solid rgba(218,175,108,.24); border-radius: 0 18px 18px 0; background: linear-gradient(165deg,rgba(35,25,18,.99),rgba(13,10,8,.99)); box-shadow: 20px 18px 60px rgba(0,0,0,.5); opacity: 0; visibility: hidden; transform: translateX(-32px) scaleX(.72); transform-origin: left bottom; transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .22s ease, visibility .32s; }
+.profile-drawer.open { opacity: 1; visibility: visible; transform: translateX(0) scaleX(1); }
+.profile-drawer-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.profile-drawer-head h2 { margin: 2px 0 0; color: #f0dabb; font-family: Georgia,serif; }
+.profile-identity { margin: 16px 0; display: grid; grid-template-columns: 72px minmax(0,1fr) auto; gap: 13px; align-items: center; }
+.profile-avatar-large { width: 72px; height: 72px; overflow: hidden; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(145deg,#704323,#24170f); color: #e9c58d; box-shadow: 0 0 0 3px rgba(218,175,108,.18); }
+.profile-identity > div:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
+.profile-identity strong { color: #edd8b8; font-size: 17px; }
+.profile-identity span,.profile-identity small { color: #907b63; }
+.profile-photo-button { border: 1px solid rgba(218,175,108,.2); border-radius: 8px; background: rgba(218,175,108,.06); color: #d7b27b; padding: 8px 10px; display: flex; gap: 6px; align-items: center; }
+.profile-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+.profile-stats div { padding: 10px 5px; border: 1px solid rgba(218,175,108,.12); border-radius: 9px; background: rgba(255,255,255,.02); text-align: center; display: grid; gap: 2px; }
+.profile-stats strong { color: #edc98f; font-size: 18px; }
+.profile-stats span { color: #8d775d; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.profile-drawer .reader-progress-card,.profile-drawer .daily-quest-board { width: 100%; margin-top: 10px; }
+.profile-drawer .daily-quest-board.open { max-height: none; }
+.profile-signout { width: 100%; margin-top: 12px; border: 0; background: transparent; color: #a98978; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px; }
+.profile-error { color: #e58f82; font-size: 12px; }
+.profile-drawer { left: 239px; }
+@media (max-width: 760px) { .profile-drawer { left: 12px; right: 12px; bottom: 12px; width: auto; border-radius: 16px; transform-origin: bottom left; } .profile-identity { grid-template-columns: 64px 1fr; } .profile-photo-button { grid-column: 1 / -1; justify-content: center; } }
+@media (max-width: 760px) { .sidebar { display: grid; grid-template-columns: 1fr auto; } .sidebar-profile-button { grid-column: 1 / -1; } }
