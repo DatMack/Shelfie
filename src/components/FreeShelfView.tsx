@@ -3,7 +3,13 @@ import type { Book, ReadingStatus } from '../data/books'
 
 export type ShelfFilter = 'All' | ReadingStatus
 
-const filters: ShelfFilter[] = ['All', 'Currently Reading', 'Want to Read', 'Read', 'DNF']
+const filters: Array<{ value: ShelfFilter; label: string }> = [
+  { value: 'All', label: 'All' },
+  { value: 'Currently Reading', label: 'Reading' },
+  { value: 'Want to Read', label: 'To Read' },
+  { value: 'Read', label: 'Read' },
+  { value: 'DNF', label: 'DNF' },
+]
 
 export function FreeShelfView({
   books,
@@ -84,12 +90,12 @@ export function FreeShelfView({
             <button
               type="button"
               role="tab"
-              aria-selected={filter === option}
-              className={filter === option ? 'library-filter active' : 'library-filter'}
-              onClick={() => setFilter(option)}
-              key={option}
+              aria-selected={filter === option.value}
+              className={filter === option.value ? 'library-filter active' : 'library-filter'}
+              onClick={() => setFilter(option.value)}
+              key={option.value}
             >
-              {option}
+              {option.label}
             </button>
           ))}
         </div>
@@ -115,7 +121,7 @@ export function FreeShelfView({
                     aria-label={`Shelf ${shelfIndex + 1}`}
                   >
                     {shelfBooks.length === 0 && (
-                      <div className="empty-shelf">{filter === 'All' ? 'Drop a book here.' : `No ${filter.toLowerCase()} books here.`}</div>
+                      <div className="empty-shelf">{filter === 'All' ? 'Drop a book here.' : 'No matching books on this shelf.'}</div>
                     )}
                     {shelfBooks.map((book, index) => (
                       <button
