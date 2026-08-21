@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Accessibility, BookOpen, CircleHelp, Crown, LayoutGrid, LockKeyhole, LogOut, MousePointer2, Palette, Settings2, Sparkles } from 'lucide-react'
 import {
   isCustomizationUnlocked,
@@ -9,6 +10,15 @@ import {
   type SiteThemeId,
   type UnlockableCustomization,
 } from '../data/customization'
+import { getLevelForXp } from '../data/progression'
+import {
+  loadShelfFinish,
+  loadShelfStyle,
+  loadSiteTheme,
+  saveShelfFinish,
+  saveShelfStyle,
+  saveSiteTheme,
+} from '../lib/customizationRuntime'
 
 type BookDetailsDisplay = 'side' | 'card'
 
@@ -18,21 +28,16 @@ type SettingsPageProps = {
   glowFocus: boolean
   detailsDisplay: BookDetailsDisplay
   shelfCount: number
-  shelfStyle: ShelfStyleId
-  shelfFinish: ShelfFinishId
-  siteTheme: SiteThemeId
-  currentLevel: number
   onLargeTextChange: (value: boolean) => void
   onHighContrastChange: (value: boolean) => void
   onGlowFocusChange: (value: boolean) => void
   onDetailsDisplayChange: (value: BookDetailsDisplay) => void
   onShelfCountChange: (value: number) => void
-  onShelfStyleChange: (value: ShelfStyleId) => void
-  onShelfFinishChange: (value: ShelfFinishId) => void
-  onSiteThemeChange: (value: SiteThemeId) => void
   onStartTour: () => void
   onSignOut?: () => void | Promise<void>
 }
+
+const previewLevel = getLevelForXp(980).level
 
 export function SettingsPage({
   largeText,
@@ -40,21 +45,33 @@ export function SettingsPage({
   glowFocus,
   detailsDisplay,
   shelfCount,
-  shelfStyle,
-  shelfFinish,
-  siteTheme,
-  currentLevel,
   onLargeTextChange,
   onHighContrastChange,
   onGlowFocusChange,
   onDetailsDisplayChange,
   onShelfCountChange,
-  onShelfStyleChange,
-  onShelfFinishChange,
-  onSiteThemeChange,
   onStartTour,
   onSignOut,
 }: SettingsPageProps) {
+  const [shelfStyle, setShelfStyle] = useState<ShelfStyleId>(loadShelfStyle)
+  const [shelfFinish, setShelfFinish] = useState<ShelfFinishId>(loadShelfFinish)
+  const [siteTheme, setSiteTheme] = useState<SiteThemeId>(loadSiteTheme)
+
+  function chooseShelfStyle(value: ShelfStyleId) {
+    setShelfStyle(value)
+    saveShelfStyle(value)
+  }
+
+  function chooseShelfFinish(value: ShelfFinishId) {
+    setShelfFinish(value)
+    saveShelfFinish(value)
+  }
+
+  function chooseSiteTheme(value: SiteThemeId) {
+    setSiteTheme(value)
+    saveSiteTheme(value)
+  }
+
   return (
     <div className="settings-page">
       <section className="settings-intro">
@@ -79,7 +96,7 @@ export function SettingsPage({
           <LayoutGrid size={20} />
           <div><h3>Bookshelf layout</h3><p>Choose the structure of your library. The three starter layouts are available to everyone.</p></div>
         </div>
-        <CustomizationGrid items={shelfStyles} value={shelfStyle} currentLevel={currentLevel} onChange={onShelfStyleChange} />
+        <CustomizationGrid items={shelfStyles} value={shelfStyle} currentLevel={previewLevel} onChange={chooseShelfStyle} />
         <div className="shelf-count-setting">
           <div><strong>Number of shelves</strong><span>Choose how many physical shelf rows appear in your bookcase.</span></div>
           <div className="shelf-count-controls" aria-label="Number of shelves">
@@ -96,7 +113,7 @@ export function SettingsPage({
           <Sparkles size={20} />
           <div><h3>Shelf material & finish</h3><p>Change what the shelf is made from. Higher-level finishes become visual trophies for your reading progress.</p></div>
         </div>
-        <CustomizationGrid items={shelfFinishes} value={shelfFinish} currentLevel={currentLevel} onChange={onShelfFinishChange} />
+        <CustomizationGrid items={shelfFinishes} value={shelfFinish} currentLevel={previewLevel} onChange={chooseShelfFinish} />
       </section>
 
       <section className="settings-section">
@@ -104,8 +121,8 @@ export function SettingsPage({
           <Palette size={20} />
           <div><h3>Shelfie color profile</h3><p>Re-theme the entire site — navigation, backgrounds, controls, highlights, and reading atmosphere.</p></div>
         </div>
-        <CustomizationGrid items={siteThemes} value={siteTheme} currentLevel={currentLevel} onChange={onSiteThemeChange} />
-        <div className="settings-tip"><LockKeyhole size={17} /><span>Your current preview level is {currentLevel}. Locked cards show exactly when they become available. Real account XP will replace the preview level when progression is connected.</span></div>
+        <CustomizationGrid items={siteThemes} value={siteTheme} currentLevel={previewLevel} onChange={chooseSiteTheme} />
+        <div className="settings-tip"><LockKeyhole size={17} /><span>Your current demo level is {previewLevel}. Locked cards show exactly when they become available. Real account XP will replace this preview level when progression is connected.</span></div>
       </section>
 
       <section className="settings-section">
