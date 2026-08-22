@@ -680,13 +680,47 @@ function BookDetailsModal({
 }
 
 function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: string) => void; onAdd: () => void }) {
+  const [collectionQuery, setCollectionQuery] = useState('')
+  const [collectionFilter, setCollectionFilter] = useState<'all' | 'unread' | 'read' | 'collectible'>('all')
+  const [collectionSort, setCollectionSort] = useState<'title' | 'author' | 'value' | 'year'>('title')
   const owned = books.filter((book) => book.owned)
   const estimatedValue = owned.reduce((sum, book) => sum + (book.estimatedValue ?? 0), 0)
   const amountSpent = owned.reduce((sum, book) => sum + (book.purchasePrice ?? 0), 0)
   const unread = owned.filter((book) => book.status !== 'Read').length
+  const readCount = owned.length - unread
+  const totalPages = owned.reduce((sum, book) => sum + (book.pages || 0), 0)
   const collectible = owned.filter((book) => book.signed || book.firstEdition || book.specialEdition).length
   const valued = owned.filter((book) => (book.estimatedValue ?? 0) > 0)
+  const priced = owned.filter((book) => book.purchasePrice !== undefined)
   const mostValuable = [...valued].sort((a, b) => (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0))[0]
+  const rated = owned.filter((book) => book.rating !== undefined)
+  const averageRating = rated.length ? rated.reduce((sum, book) => sum + (book.rating ?? 0), 0) / rated.length : 0
+
+  function countsFor(values: string[]) {
+    const counts = new Map<string, number>()
+    values.filter(Boolean).forEach((value) => counts.set(value, (counts.get(value) ?? 0) + 1))
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  }
+
+  const formats = countsFor(owned.map((book) => book.format ?? 'Not set'))
+  const conditions = countsFor(owned.map((book) => book.condition ?? 'Not set'))
+  const genres = countsFor(owned.map((book) => book.genre || 'Uncategorized'))
+  const authors = countsFor(owned.map((book) => book.author || 'Unknown author'))
+  const normalizedQuery = collectionQuery.trim().toLowerCase()
+  const visibleBooks = owned
+    .filter((book) => !normalizedQuery || `${book.title} ${book.author} ${book.genre} ${book.isbn ?? ''}`.toLowerCase().includes(normalizedQuery))
+    .filter((book) => {
+      if (collectionFilter === 'read') return book.status === 'Read'
+      if (collectionFilter === 'unread') return book.status !== 'Read'
+      if (collectionFilter === 'collectible') return Boolean(book.signed || book.firstEdition || book.specialEdition)
+      return true
+    })
+    .sort((a, b) => {
+      if (collectionSort === 'author') return a.author.localeCompare(b.author)
+      if (collectionSort === 'value') return (b.estimatedValue ?? -1) - (a.estimatedValue ?? -1)
+      if (collectionSort === 'year') return (b.year ?? 0) - (a.year ?? 0)
+      return a.title.localeCompare(b.title)
+    })
 
   return (
     <div className="collection-page">
@@ -696,26 +730,43 @@ function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: 
           <h2>A collection worth keeping track of.</h2>
           <p>Ownership, editions, condition and value live here without changing where a book sits in your reading journey.</p>
         </div>
-        <div className="collection-value"><span>Estimated collection value</span><strong>{money(estimatedValue)}</strong><small>Approximate · user/API estimates later</small></div>
+        <div className="collection-value"><span>Estimated collection value</span><strong>{valued.length ? money(estimatedValue) : 'Not valued yet'}</strong><small>{valued.length} of {owned.length} books have an estimate</small></div>
       </section>
 
-      <section className="metric-grid">
-        <Metric icon={<Archive />} label="Books owned" value={String(owned.length)} detail={`${unread} still waiting to be read`} />
-        <Metric icon={<DollarSign />} label="Amount recorded spent" value={money(amountSpent)} detail="Only books with a purchase price" />
-        <Metric icon={<Sparkles />} label="Collectible copies" value={String(collectible)} detail="Special, signed or first editions" />
-        <Metric icon={<BarChart3 />} label="Most valuable" value={mostValuable ? money(mostValuable.estimatedValue) : '—'} detail={mostValuable?.title ?? 'Add estimates as you go'} />
+      <section className="metric-grid collection-metrics">
+        <Metric icon={<Archive />} label="Books owned" value={String(owned.length)} detail={`${readCount} read · ${unread} unread`} />
+        <Metric icon={<BookOpen />} label="Reading progress" value={owned.length ? `${Math.round((readCount / owned.length) * 100)}%` : '—'} detail={`${totalPages.toLocaleString()} pages collected`} />
+        <Metric icon={<DollarSign />} label="Recorded spending" value={priced.length ? money(amountSpent) : 'Not recorded'} detail={`${priced.length} of ${owned.length} books priced`} />
+        <Metric icon={<Sparkles />} label="Special copies" value={String(collectible)} detail={`${owned.filter((book) => book.signed).length} signed · ${owned.filter((book) => book.firstEdition).length} first editions`} />
+        <Metric icon={<Star />} label="Average rating" value={rated.length ? averageRating.toFixed(1) : 'Not rated'} detail={`${rated.length} rated books`} />
+        <Metric icon={<BarChart3 />} label="Most valuable" value={mostValuable ? money(mostValuable.estimatedValue) : 'Not valued'} detail={mostValuable?.title ?? 'Add estimates as you go'} />
       </section>
 
-      <div className="section-heading">
+      {owned.length > 0 && (
+        <section className="collection-insights" aria-label="Collection insights">
+          <CollectionBreakdown title="Formats" items={formats} total={owned.length} />
+          <CollectionBreakdown title="Conditions" items={conditions} total={owned.length} />
+          <div className="collection-ranking"><p className="eyebrow">COLLECTION DNA</p><h3>What fills your shelves</h3><div className="ranking-list"><span><b>Top genre</b><strong>{genres[0]?.[0] ?? 'Not set'}</strong><small>{genres[0]?.[1] ?? 0} books</small></span><span><b>Most collected author</b><strong>{authors[0]?.[0] ?? 'Not set'}</strong><small>{authors[0]?.[1] ?? 0} books</small></span><span><b>Gifted to you</b><strong>{owned.filter((book) => book.gifted).length}</strong><small>books</small></span></div></div>
+        </section>
+      )}
+
+      <div className="section-heading collection-heading">
         <div><p className="eyebrow">OWNED</p><h2>Your collection</h2></div>
-        <span>{owned.length} books</span>
+        <button className="primary" type="button" onClick={onAdd}><BookPlus size={17} /> Add owned book</button>
       </div>
 
       {owned.length === 0 ? (
         <div className="empty-collection"><Archive size={42} /><h3>No owned books marked yet</h3><p>Add a book or mark a book on your shelf as owned.</p><button className="primary" onClick={onAdd}><BookPlus size={18} /> Add a book</button></div>
       ) : (
-        <div className="collection-grid">
-          {owned.map((book) => (
+        <>
+          <div className="collection-tools">
+            <label className="search-box"><Search size={17} /><input value={collectionQuery} onChange={(event) => setCollectionQuery(event.target.value)} placeholder="Search this collection…" /></label>
+            <div className="collection-filter" aria-label="Filter collection">{(['all', 'unread', 'read', 'collectible'] as const).map((filter) => <button className={collectionFilter === filter ? 'active' : ''} type="button" onClick={() => setCollectionFilter(filter)} key={filter}>{filter === 'all' ? 'All' : filter[0].toUpperCase() + filter.slice(1)}</button>)}</div>
+            <label className="collection-sort">Sort <select value={collectionSort} onChange={(event) => setCollectionSort(event.target.value as typeof collectionSort)}><option value="title">Title</option><option value="author">Author</option><option value="value">Value</option><option value="year">Newest</option></select></label>
+          </div>
+          <div className="collection-result-count">Showing {visibleBooks.length} of {owned.length} owned books</div>
+          <div className="collection-grid">
+          {visibleBooks.map((book) => (
             <button className="collection-book" key={book.id} onClick={() => onOpen(book.id)}>
               <div className="collection-cover" style={{ background: `linear-gradient(155deg, ${book.color}, #15100c)` }}>
                 {book.coverUrl ? <img src={book.coverUrl} alt="" /> : <span>{book.title}</span>}
@@ -728,10 +779,16 @@ function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: 
               </div>
             </button>
           ))}
-        </div>
+          </div>
+          {visibleBooks.length === 0 && <div className="collection-no-results">No books match those filters.</div>}
+        </>
       )}
     </div>
   )
+}
+
+function CollectionBreakdown({ title, items, total }: { title: string; items: [string, number][]; total: number }) {
+  return <div className="collection-breakdown"><p className="eyebrow">BREAKDOWN</p><h3>{title}</h3><div>{items.slice(0, 5).map(([label, count]) => <span key={label}><b>{label}</b><i><em style={{ width: `${(count / Math.max(total, 1)) * 100}%` }} /></i><small>{count}</small></span>)}</div></div>
 }
 
 function Metric({ icon, label, value, detail }: { icon: ReactNode; label: string; value: string; detail: string }) {
