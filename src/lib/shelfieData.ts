@@ -268,36 +268,50 @@ export async function findOrCreateCatalogBook(result: BookSearchResult) {
 }
 
 export async function addCatalogBookToMyShelf({
-  userId,
-  bookId,
+  result,
   status,
   owned,
   format,
 }: {
-  userId: string
-  bookId: string
+  result: BookSearchResult
   status: ReadingStatus
   owned: boolean
   format?: BookFormat
 }) {
   const client = requireSupabase()
+  const externalSource = result.source ?? 'openlibrary'
+  const compactIsbn = result.isbn?.replace(/[^0-9X]/gi, '')
   const { data, error } = await client
-    .from('user_books')
-    .insert({
-      user_id: userId,
-      book_id: bookId,
-      status: statusToDatabase(status),
-      shelf_index: 0,
-      shelf_column: 0,
-      shelf_position: 0,
-      owned,
-      format: owned ? formatToDatabase(format) : null,
+    .rpc('add_book_to_my_library', {
+      p_catalog: {
+        external_source: externalSource,
+        external_id: result.key,
+        work_key: result.key,
+        isbn10: compactIsbn?.length === 10 ? compactIsbn : null,
+        isbn13: compactIsbn?.length === 13 ? compactIsbn : null,
+        title: result.title,
+        subtitle: result.subtitle ?? null,
+        authors: result.author === 'Unknown author' ? [] : result.author.split(',').map((author) => author.trim()),
+        description: result.description ?? null,
+        cover_url: result.coverUrl ?? null,
+        publisher: result.publisher ?? null,
+        published_date: result.publishedDate ?? null,
+        publication_year: result.year ?? null,
+        page_count: result.pages ?? null,
+        genres: result.genre ? [result.genre] : [],
+        subjects: result.subjects ?? [],
+        language: result.language ?? null,
+        metadata: { imported_from: externalSource, google_volume_id: result.googleVolumeId ?? null },
+      },
+      p_status: statusToDatabase(status),
+      p_owned: owned,
+      p_format: owned ? formatToDatabase(format) : null,
     })
-    .select('*')
-    .single()
 
   if (error) throw error
-  return data
+  const added = Array.isArray(data) ? data[0] : data
+  if (!added?.id) throw new Error('Supabase did not return the added collection record.')
+  return added
 }
 
 export async function importLocalBook(userId: string, book: Book) {
@@ -393,8 +407,9 @@ export async function updateMyBook(userBookId: string, patch: Record<string, unk
 
 export async function deleteMyBook(userBookId: string) {
   const client = requireSupabase()
-  const { error } = await client.from('user_books').delete().eq('id', userBookId)
+  const { data, error } = await client.rpc('remove_my_library_book', { p_user_book_id: userBookId })
   if (error) throw error
+  if (!data) throw new Error('That book was not found in your collection.')
 }
 
 export type ShelfieProfile = {

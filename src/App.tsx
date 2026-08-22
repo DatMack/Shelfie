@@ -35,7 +35,6 @@ import {
   addCatalogBookToMyShelf,
   bookPatchToDatabase,
   deleteMyBook,
-  findOrCreateCatalogBook,
   loadTourCompleted,
   loadMyLibrary,
   markTourCompleted,
@@ -379,8 +378,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     }
 
     const colors = colorsFor(result.title)
-    const catalog = await findOrCreateCatalogBook(result)
-    const userBook = await addCatalogBookToMyShelf({ userId, bookId: catalog.id, ...options })
+    const userBook = await addCatalogBookToMyShelf({ result, ...options })
     const newBook: Book = {
       id: userBook.id,
       title: result.title,
@@ -914,7 +912,12 @@ function AddBookModal({
       await onAdd(result, { status, owned, format })
       setSuccess(`${result.title} was added successfully.`)
     } catch (addError) {
-      setError(addError instanceof Error ? addError.message : 'That book could not be added. Please try again.')
+      const message = addError instanceof Error
+        ? addError.message
+        : typeof addError === 'object' && addError && 'message' in addError
+          ? String(addError.message)
+          : 'That book could not be added. Please try again.'
+      setError(message)
     } finally {
       setAddingKey('')
     }
