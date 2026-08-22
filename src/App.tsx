@@ -43,7 +43,8 @@ import {
   updateMyBook,
 } from './lib/shelfieData'
 import { enrichWithGoogleBooks } from './services/googleBooks'
-import { BookSearchResult, searchOpenLibrary } from './services/openLibrary'
+import { searchEverywhere } from './services/bookSearch'
+import { BookSearchResult } from './services/openLibrary'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
 const storageKey = 'shelfie-books-v1'
@@ -245,7 +246,12 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     let cancelled = false
     setDiscoverLoading(true)
     setDiscoverError('')
-    searchOpenLibrary(recommendationGenre)
+    searchEverywhere(recommendationGenre, (results) => {
+      if (!cancelled) {
+        setDiscoverResults(results.filter((result) => !isAlreadyInLibrary(result, books)))
+        setDiscoverLoading(false)
+      }
+    })
       .then((results) => {
         if (cancelled) return
         setDiscoverResults(results.filter((result) => !isAlreadyInLibrary(result, books)))
@@ -387,7 +393,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       coverUrl: result.coverUrl,
       isbn: result.isbn,
       externalId: result.key,
-      source: 'openlibrary',
+      source: result.source ?? 'openlibrary',
       owned: options.owned,
       ...(options.owned ? { format: options.format } : {}),
       ...(options.status === 'Currently Reading' ? { currentPage: 0 } : {}),
@@ -403,7 +409,11 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     setDiscoverLoading(true)
     setDiscoverError('')
     try {
-      setDiscoverResults(await searchOpenLibrary(discoverTerm))
+      const results = await searchEverywhere(discoverTerm, (partial) => {
+        setDiscoverResults(partial)
+        setDiscoverLoading(false)
+      })
+      setDiscoverResults(results)
       setDiscoverSeed('')
     } catch (searchError) {
       setDiscoverError(searchError instanceof Error ? searchError.message : 'Could not search for books.')
@@ -772,7 +782,7 @@ function DiscoverView({
 
       <div className="section-heading discover-heading">
         <div><p className="eyebrow">FOR YOU</p><h2>{term ? `Results for “${term}”` : `Because you enjoy ${genre}`}</h2></div>
-        <span>Powered by Open Library</span>
+        <span>Searching Google Books + Open Library</span>
       </div>
 
       {error && <div className="discover-message">{error}</div>}
@@ -783,7 +793,7 @@ function DiscoverView({
             const added = isAlreadyInLibrary(result, books)
             return (
               <article className="discover-book" key={result.key} onClick={() => void openResult(result)}>
-                <div className="discover-cover">{result.coverUrl ? <img src={result.coverUrl} alt="" /> : <BookOpen size={34} />}</div>
+                <div className="discover-cover">{result.coverUrl ? <ResilientCover book={result} alt="" /> : <BookOpen size={34} />}</div>
                 <div className="discover-copy">
                   <strong>{result.title}</strong>
                   <span>{result.author}</span>
@@ -816,7 +826,7 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
     <div className="modal-backdrop discover-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="discover-detail-modal" role="dialog" aria-modal="true" aria-label={`Discover ${book.title}`}>
         <button className="icon-button discover-close" type="button" onClick={onClose} aria-label="Close"><X /></button>
-        <div className="discover-detail-cover">{book.largeCoverUrl || book.coverUrl ? <img src={book.largeCoverUrl ?? book.coverUrl} alt={`Cover of ${book.title}`} /> : <BookOpen size={48} />}</div>
+        <div className="discover-detail-cover">{book.largeCoverUrl || book.coverUrl ? <ResilientCover book={book} large alt={`Cover of ${book.title}`} /> : <BookOpen size={48} />}</div>
         <div className="discover-detail-copy">
           <p className="eyebrow">BOOK DETAILS</p>
           <h2>{book.title}</h2>
@@ -842,6 +852,13 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
       </section>
     </div>
   )
+}
+
+function ResilientCover({ book, alt, large = false }: { book: BookSearchResult; alt: string; large?: boolean }) {
+  const urls = [...new Set([large ? book.largeCoverUrl : book.coverUrl, book.coverUrl, book.largeCoverUrl, ...(book.alternateCoverUrls ?? [])].filter((url): url is string => Boolean(url)))]
+  const [index, setIndex] = useState(0)
+  if (!urls[index]) return <BookOpen size={large ? 48 : 34} />
+  return <img src={urls[index]} alt={alt} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setIndex((current) => current + 1)} />
 }
 
 function RemoveBookDialog({ book, message, busy, onCancel, onConfirm }: { book: Book; message: string; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
@@ -884,7 +901,11 @@ function AddBookModal({
     setLoading(true)
     setError('')
     try {
-      setResults(await searchOpenLibrary(term))
+      const books = await searchEverywhere(term, (partial) => {
+        setResults(partial)
+        setLoading(false)
+      })
+      setResults(books)
     } catch (searchError) {
       setError(searchError instanceof Error ? searchError.message : 'Could not search for books.')
     } finally {
@@ -925,7 +946,7 @@ function AddBookModal({
             const alreadyAdded = isAlreadyInLibrary(result, books)
             return (
               <article className="search-result" key={result.key}>
-                <div className="result-cover">{result.coverUrl ? <img src={result.coverUrl} alt="" /> : <BookOpen size={28} />}</div>
+                <div className="result-cover">{result.coverUrl ? <ResilientCover book={result} alt="" /> : <BookOpen size={28} />}</div>
                 <div className="result-copy"><strong>{result.title}</strong><span>{result.author}</span><small>{[result.year, result.pages ? `${result.pages} pages` : '', result.isbn ? `ISBN ${result.isbn}` : ''].filter(Boolean).join(' · ')}</small></div>
                 <button className={alreadyAdded ? 'added-button' : 'add-result-button'} disabled={alreadyAdded} onClick={() => onAdd(result, { status, owned, format })} type="button">{alreadyAdded ? <><Check size={17} /> Added</> : <><BookPlus size={17} /> Add</>}</button>
               </article>
