@@ -301,7 +301,14 @@ export async function addCatalogBookToMyShelf({
         genres: result.genre ? [result.genre] : [],
         subjects: result.subjects ?? [],
         language: result.language ?? null,
-        metadata: { imported_from: externalSource, google_volume_id: result.googleVolumeId ?? null },
+        metadata: {
+          imported_from: externalSource,
+          google_volume_id: result.googleVolumeId ?? null,
+          google_books_price: result.retailPrice ?? null,
+          google_books_currency: result.currencyCode ?? null,
+          google_books_is_ebook: result.isEbook ?? null,
+          google_books_buy_link: result.buyLink ?? null,
+        },
       },
       p_status: statusToDatabase(status),
       p_owned: owned,
@@ -353,6 +360,11 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.format !== undefined) output.format = formatToDatabase(patch.format)
   if (patch.purchasePrice !== undefined) output.purchase_price = patch.purchasePrice
   if (patch.estimatedValue !== undefined) output.manual_estimated_value = patch.estimatedValue
+  if (patch.condition !== undefined) output.condition = patch.condition.toLowerCase().replaceAll(' ', '_')
+  if (patch.specialEdition !== undefined) output.special_edition = patch.specialEdition
+  if (patch.signed !== undefined) output.signed = patch.signed
+  if (patch.firstEdition !== undefined) output.first_edition = patch.firstEdition
+  if (patch.gifted !== undefined) output.gifted = patch.gifted
   if (patch.favorite !== undefined) output.is_favorite = patch.favorite
   if (patch.customTags !== undefined) output.custom_tags = patch.customTags
   if (patch.moodTags !== undefined) output.mood_tags = patch.moodTags
@@ -390,6 +402,19 @@ export async function uploadCustomSpine(userBookId: string, file: File) {
   if (error) throw error
   const { data } = client.storage.from('book-spines').getPublicUrl(path)
   return data.publicUrl
+}
+
+export async function uploadBookCover(file: File) {
+  const client = requireSupabase()
+  const { data: { user }, error: userError } = await client.auth.getUser()
+  if (userError || !user) throw userError ?? new Error('Sign in to upload a book cover.')
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const path = `${user.id}/manual-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+  const { error } = await client.storage.from('book-covers').upload(path, file, {
+    cacheControl: '31536000', contentType: file.type || 'image/jpeg', upsert: false,
+  })
+  if (error) throw error
+  return client.storage.from('book-covers').getPublicUrl(path).data.publicUrl
 }
 
 export async function updateMyBook(userBookId: string, patch: Record<string, unknown>) {
