@@ -150,6 +150,37 @@ export async function loadMyLibrary(userId: string) {
   return data
 }
 
+export async function loadTourCompleted(userId: string) {
+  const client = requireSupabase()
+  const { data, error } = await client
+    .from('profiles')
+    .select('feature_preferences')
+    .eq('id', userId)
+    .single()
+  if (error) throw error
+  return data.feature_preferences?.walkthrough_completed === true
+}
+
+export async function markTourCompleted(userId: string) {
+  const client = requireSupabase()
+  const { data: profile, error: readError } = await client
+    .from('profiles')
+    .select('feature_preferences')
+    .eq('id', userId)
+    .single()
+  if (readError) throw readError
+  const { error } = await client
+    .from('profiles')
+    .update({
+      feature_preferences: {
+        ...(profile.feature_preferences ?? {}),
+        walkthrough_completed: true,
+      },
+    })
+    .eq('id', userId)
+  if (error) throw error
+}
+
 export async function findOrCreateCatalogBook(result: BookSearchResult) {
   const client = requireSupabase()
   const externalSource = result.source ?? 'openlibrary'
