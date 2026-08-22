@@ -72,7 +72,7 @@ export function ProfileDrawer({
           <div className="profile-avatar-large">{avatar ? <img src={avatar} alt={`${name}'s profile`} /> : <UserRound size={42} />}</div>
           <div><span>{username}</span><small>{profile?.bio ?? 'Building a life one chapter at a time.'}</small></div>
           <input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
-          <button className="profile-photo-button" type="button" disabled={uploading} onClick={() => fileInput.current?.click()}><Camera size={16} /> {uploading ? 'Uploading…' : 'Change photo'}</button>
+          <button className="profile-photo-button" type="button" disabled={uploading} onClick={() => fileInput.current?.click()} aria-label={uploading ? 'Uploading profile picture' : 'Change profile picture'} title={uploading ? 'Uploading…' : 'Change photo'}><Camera size={17} /></button>
         </div>
         {error && <p className="profile-error">{error}</p>}
 
