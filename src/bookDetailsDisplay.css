@@ -165,6 +165,7 @@
 
 @media (max-width: 560px) {
   .market-value-summary { align-items: flex-start; flex-direction: column; }
+  .market-value-summary > .market-value-actions { align-items: flex-start; flex-direction: column; }
   .ownership-fields { grid-template-columns: 1fr; }
 }
 
