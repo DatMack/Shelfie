@@ -4,6 +4,7 @@ import {
   BarChart3,
   BookOpen,
   BookPlus,
+  Camera,
   Check,
   ChevronDown,
   ChevronRight,
@@ -40,6 +41,7 @@ import {
   markTourCompleted,
   mapLibraryRows,
   saveShelfOrder,
+  uploadBookCover,
   updateMyBook,
 } from './lib/shelfieData'
 import { enrichWithGoogleBooks } from './services/googleBooks'
@@ -65,7 +67,18 @@ const palette = [
 ]
 
 type View = 'shelf' | 'collection' | 'discover' | 'settings'
-type AddBookOptions = { status: ReadingStatus; owned: boolean; format: BookFormat }
+type AddBookOptions = {
+  status: ReadingStatus
+  owned: boolean
+  format: BookFormat
+  condition?: Book['condition']
+  purchasePrice?: number
+  estimatedValue?: number
+  specialEdition?: boolean
+  signed?: boolean
+  firstEdition?: boolean
+  gifted?: boolean
+}
 type BookDetailsDisplay = 'side' | 'card'
 
 function defaultShelfForStatus(status: ReadingStatus) {
@@ -365,8 +378,9 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   }
 
   async function addBook(result: BookSearchResult, options: AddBookOptions) {
+    const enriched = result.source === 'manual' ? result : await enrichWithGoogleBooks(result)
     const duplicate = books.find(
-      (book) => book.externalId === result.key || (book.isbn && result.isbn && book.isbn === result.isbn),
+      (book) => book.externalId === enriched.key || (book.isbn && enriched.isbn && book.isbn === enriched.isbn),
     )
     if (duplicate) {
       if (options.owned && !duplicate.owned) {
@@ -377,29 +391,46 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       return
     }
 
-    const colors = colorsFor(result.title)
-    const userBook = await addCatalogBookToMyShelf({ result, ...options })
+    const colors = colorsFor(enriched.title)
+    const userBook = await addCatalogBookToMyShelf({ result: enriched, ...options })
+    const ownershipPatch = bookPatchToDatabase({
+      condition: options.condition,
+      purchasePrice: options.purchasePrice,
+      estimatedValue: options.estimatedValue,
+      specialEdition: options.specialEdition,
+      signed: options.signed,
+      firstEdition: options.firstEdition,
+      gifted: options.gifted,
+    })
+    if (Object.keys(ownershipPatch).length) await updateMyBook(userBook.id, ownershipPatch)
     const newBook: Book = {
       id: userBook.id,
-      title: result.title,
-      author: result.author,
+      title: enriched.title,
+      author: enriched.author,
       status: options.status,
       shelfIndex: 0,
       color: colors.color,
       accent: colors.accent,
-      pages: result.pages || 0,
-      genre: result.genre || 'Uncategorized',
-      subjects: result.subjects,
-      publisher: result.publisher,
-      description: result.description,
-      language: result.language,
-      year: result.year || new Date().getFullYear(),
-      coverUrl: result.coverUrl,
-      isbn: result.isbn,
-      externalId: result.key,
-      source: result.source ?? 'openlibrary',
+      pages: enriched.pages || 0,
+      genre: enriched.genre || 'Uncategorized',
+      subjects: enriched.subjects,
+      publisher: enriched.publisher,
+      description: enriched.description,
+      language: enriched.language,
+      year: enriched.year || new Date().getFullYear(),
+      coverUrl: enriched.coverUrl,
+      isbn: enriched.isbn,
+      externalId: enriched.key,
+      source: enriched.source ?? 'openlibrary',
       owned: options.owned,
       ...(options.owned ? { format: options.format } : {}),
+      condition: options.condition,
+      purchasePrice: options.purchasePrice,
+      estimatedValue: options.estimatedValue,
+      specialEdition: options.specialEdition,
+      signed: options.signed,
+      firstEdition: options.firstEdition,
+      gifted: options.gifted,
       ...(options.status === 'Currently Reading' ? { currentPage: 0 } : {}),
     }
 
@@ -902,7 +933,7 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
               <p className="discover-description">{book.description ?? 'A full description was not available for this edition.'}</p>
               {book.subjects?.length ? <div className="discover-tags">{book.subjects.slice(0, 6).map((subject) => <span key={subject}>{subject}</span>)}</div> : null}
               <div className="discover-purchase-panel">
-                <div><small>AVAILABLE GOOGLE BOOKS PRICE</small><strong>{price ?? (book.saleability === 'FREE' ? 'Free' : 'No listed price')}</strong><span>{book.buyLink ? 'Price and availability may change at checkout.' : 'No direct purchase link was returned for this edition.'}</span></div>
+                <div><small>{book.isEbook === false ? 'GOOGLE BOOKS LISTED PRICE' : 'GOOGLE EBOOK PRICE'}</small><strong>{price ?? (book.saleability === 'FREE' ? 'Free' : 'No listed price')}</strong><span>{book.buyLink ? 'Google price and availability may change at checkout.' : 'Physical purchase price and collection value can be recorded manually.'}</span></div>
                 {book.buyLink && <a className="buy-book-button" href={book.buyLink} target="_blank" rel="noreferrer"><ShoppingCart size={18} /> Buy book <ExternalLink size={14} /></a>}
               </div>
             </>
@@ -960,6 +991,7 @@ function AddBookModal({
   const [error, setError] = useState('')
   const [addingKey, setAddingKey] = useState('')
   const [success, setSuccess] = useState('')
+  const [mode, setMode] = useState<'search' | 'manual'>('search')
 
   async function addResult(result: BookSearchResult) {
     setAddingKey(result.key)
@@ -1006,6 +1038,13 @@ function AddBookModal({
           <button className="icon-button" onClick={onClose} aria-label="Close"><X /></button>
         </div>
 
+        <div className="add-book-mode" role="tablist" aria-label="How to add a book">
+          <button type="button" role="tab" aria-selected={mode === 'search'} className={mode === 'search' ? 'active' : ''} onClick={() => setMode('search')}><Search size={16} /> Search catalogs</button>
+          <button type="button" role="tab" aria-selected={mode === 'manual'} className={mode === 'manual' ? 'active' : ''} onClick={() => setMode('manual')}><BookPlus size={16} /> Add manually</button>
+        </div>
+
+        {mode === 'manual' ? <ManualBookForm onAdd={onAdd} /> : <>
+
         <form className="book-search-form" onSubmit={submit}>
           <label className="search-box modal-search"><Search size={20} /><input autoFocus value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search title, author, or ISBN..." /></label>
           <button className="primary" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={18} /> : <Search size={18} />} Search</button>
@@ -1040,10 +1079,92 @@ function AddBookModal({
           })}
         </div>
 
-        <div className="manual-hint">Can't find a book? Manual entry, link import and barcode scanning are planned.</div>
+        <div className="manual-hint">Can't find it? Choose <button type="button" onClick={() => setMode('manual')}>Add manually</button> to create the full book record and upload a cover.</div>
+        </>}
       </section>
     </div>
   )
+}
+
+function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: AddBookOptions) => Promise<void> }) {
+  const [title, setTitle] = useState('')
+  const [author, setAuthor] = useState('')
+  const [isbn, setIsbn] = useState('')
+  const [year, setYear] = useState('')
+  const [pages, setPages] = useState('')
+  const [genre, setGenre] = useState('')
+  const [publisher, setPublisher] = useState('')
+  const [description, setDescription] = useState('')
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [status, setStatus] = useState<ReadingStatus>('Want to Read')
+  const [owned, setOwned] = useState(true)
+  const [format, setFormat] = useState<BookFormat>('Paperback')
+  const [condition, setCondition] = useState<Book['condition']>('Good')
+  const [purchasePrice, setPurchasePrice] = useState('')
+  const [estimatedValue, setEstimatedValue] = useState('')
+  const [specialEdition, setSpecialEdition] = useState(false)
+  const [signed, setSigned] = useState(false)
+  const [firstEdition, setFirstEdition] = useState(false)
+  const [gifted, setGifted] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  async function saveManualBook(event: FormEvent) {
+    event.preventDefault()
+    if (!title.trim() || !author.trim()) return setError('Title and author are required.')
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      const coverUrl = coverFile ? await uploadBookCover(coverFile) : undefined
+      const manual: BookSearchResult = {
+        key: `manual:${crypto.randomUUID()}`,
+        source: 'manual',
+        title: title.trim(), author: author.trim(), isbn: isbn.trim() || undefined,
+        year: Number(year) || undefined, pages: Number(pages) || undefined,
+        genre: genre.trim() || undefined, subjects: genre.trim() ? [genre.trim()] : undefined,
+        publisher: publisher.trim() || undefined, description: description.trim() || undefined,
+        coverUrl, largeCoverUrl: coverUrl,
+      }
+      await onAdd(manual, {
+        status, owned, format, condition: owned ? condition : undefined,
+        purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
+        estimatedValue: estimatedValue ? Number(estimatedValue) : undefined,
+        specialEdition, signed, firstEdition, gifted,
+      })
+      setSuccess(`${manual.title} was added successfully.`)
+      setTitle(''); setAuthor(''); setIsbn(''); setYear(''); setPages(''); setGenre(''); setPublisher(''); setDescription(''); setCoverFile(null); setPurchasePrice(''); setEstimatedValue('');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : typeof saveError === 'object' && saveError && 'message' in saveError ? String(saveError.message) : 'Could not save this book.')
+    } finally { setSaving(false) }
+  }
+
+  return <form className="manual-book-form" onSubmit={saveManualBook}>
+    <div className="manual-book-grid">
+      <label className="manual-cover-upload">
+        <span>{coverFile ? <img src={URL.createObjectURL(coverFile)} alt="Cover preview" /> : <><Camera size={28} /><strong>Add cover</strong><small>Upload or take a photo</small></>}</span>
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
+      </label>
+      <div className="manual-primary-fields">
+        <label>Title *<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label>
+        <label>Author *<input value={author} onChange={(event) => setAuthor(event.target.value)} required /></label>
+        <label>ISBN<input value={isbn} onChange={(event) => setIsbn(event.target.value)} inputMode="numeric" /></label>
+      </div>
+    </div>
+    <div className="manual-fields">
+      <label>Year<input value={year} onChange={(event) => setYear(event.target.value)} type="number" min="0" max="2100" /></label>
+      <label>Pages<input value={pages} onChange={(event) => setPages(event.target.value)} type="number" min="0" /></label>
+      <label>Genre<input value={genre} onChange={(event) => setGenre(event.target.value)} /></label>
+      <label>Publisher<input value={publisher} onChange={(event) => setPublisher(event.target.value)} /></label>
+    </div>
+    <label className="manual-description">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} placeholder="Back-cover description, notes, or your own summary…" /></label>
+    <div className="manual-status-row"><select value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}>{readingStatuses.map((item) => <option key={item}>{item}</option>)}</select><label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => setOwned(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label></div>
+    {owned && <div className="manual-fields ownership-manual"><label>Format<select value={format} onChange={(event) => setFormat(event.target.value as BookFormat)}>{bookFormats.map((item) => <option key={item}>{item}</option>)}</select></label><label>Condition<select value={condition} onChange={(event) => setCondition(event.target.value as Book['condition'])}>{['New','Like New','Very Good','Good','Fair','Poor'].map((item) => <option key={item}>{item}</option>)}</select></label><label>Paid<input type="number" min="0" step="0.01" value={purchasePrice} onChange={(event) => setPurchasePrice(event.target.value)} /></label><label>Est. value<input type="number" min="0" step="0.01" value={estimatedValue} onChange={(event) => setEstimatedValue(event.target.value)} /></label></div>}
+    <div className="manual-flags"><label><input type="checkbox" checked={specialEdition} onChange={(event) => setSpecialEdition(event.target.checked)} /> Special edition</label><label><input type="checkbox" checked={signed} onChange={(event) => setSigned(event.target.checked)} /> Signed</label><label><input type="checkbox" checked={firstEdition} onChange={(event) => setFirstEdition(event.target.checked)} /> First edition</label><label><input type="checkbox" checked={gifted} onChange={(event) => setGifted(event.target.checked)} /> Gifted</label></div>
+    {error && <div className="search-message error-message">{error}</div>}{success && <div className="search-message add-success"><Check size={18} /> {success}</div>}
+    <button className="primary manual-save" type="submit" disabled={saving}>{saving ? <><LoaderCircle className="spin" size={17} /> Saving book…</> : <><BookPlus size={17} /> Add book</>}</button>
+  </form>
 }
 
 function isAlreadyInLibrary(result: BookSearchResult, books: Book[]) {
