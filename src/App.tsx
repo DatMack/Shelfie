@@ -36,8 +36,9 @@ import {
   bookPatchToDatabase,
   deleteMyBook,
   findOrCreateCatalogBook,
-  importLocalBook,
+  loadTourCompleted,
   loadMyLibrary,
+  markTourCompleted,
   mapLibraryRows,
   saveShelfOrder,
   updateMyBook,
@@ -136,14 +137,6 @@ function loadBoolean(key: string, fallback: boolean) {
   return fallback
 }
 
-function shouldShowTour() {
-  try {
-    return localStorage.getItem(tourKey) !== 'done'
-  } catch {
-    return true
-  }
-}
-
 function colorsFor(seed: string) {
   const total = [...seed].reduce((sum, char) => sum + char.charCodeAt(0), 0)
   const [color, accent] = palette[total % palette.length]
@@ -156,13 +149,13 @@ function money(value?: number) {
 }
 
 export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut }: { userId: string; userEmail?: string; fallbackName?: string; fallbackAvatar?: string; onSignOut?: () => void | Promise<void> }) {
-  const [books, setBooks] = useState<Book[]>(loadLibrary)
+  const [books, setBooks] = useState<Book[]>([])
   const [libraryReady, setLibraryReady] = useState(false)
   const [selectedBookId, setSelectedBookId] = useState(sampleBooks[2].id)
   const [detailsDisplay, setDetailsDisplay] = useState<BookDetailsDisplay>(loadDetailsDisplay)
   const [detailCardOpen, setDetailCardOpen] = useState(false)
   const [shelfCount, setShelfCount] = useState(loadShelfCount)
-  const [tourOpen, setTourOpen] = useState(shouldShowTour)
+  const [tourOpen, setTourOpen] = useState(false)
   const [view, setView] = useState<View>('shelf')
   const [largeText, setLargeText] = useState(() => loadBoolean(largeTextKey, false))
   const [glowFocus, setGlowFocus] = useState(() => loadBoolean(glowFocusKey, true))
@@ -186,15 +179,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     async function connectLibrary() {
       const remoteRows = await loadMyLibrary(userId)
       if (cancelled) return
-      if (remoteRows.length > 0) {
-        setBooks(mapLibraryRows(remoteRows))
-      } else if (books.length > 0) {
-        await Promise.all(books.map((book) => importLocalBook(userId, book)))
-        const importedRows = await loadMyLibrary(userId)
-        if (!cancelled) setBooks(mapLibraryRows(importedRows))
-      } else {
-        setBooks([])
-      }
+      setBooks(mapLibraryRows(remoteRows))
       if (!cancelled) setLibraryReady(true)
     }
     connectLibrary().catch((error) => {
@@ -205,8 +190,24 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   }, [userId])
 
   useEffect(() => {
-    if (libraryReady) localStorage.setItem(storageKey, JSON.stringify(books))
-  }, [books, libraryReady])
+    let cancelled = false
+    loadTourCompleted(userId)
+      .then((completed) => {
+        if (!cancelled && !completed) setTourOpen(true)
+      })
+      .catch(() => {
+        try {
+          if (!cancelled && localStorage.getItem(`${tourKey}:${userId}`) !== 'done') setTourOpen(true)
+        } catch {
+          if (!cancelled) setTourOpen(true)
+        }
+      })
+    return () => { cancelled = true }
+  }, [userId])
+
+  useEffect(() => {
+    if (libraryReady) localStorage.setItem(`${storageKey}:${userId}`, JSON.stringify(books))
+  }, [books, libraryReady, userId])
 
   useEffect(() => {
     localStorage.setItem(detailsDisplayKey, detailsDisplay)
@@ -356,10 +357,11 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
   function closeTour() {
     try {
-      localStorage.setItem(tourKey, 'done')
+      localStorage.setItem(`${tourKey}:${userId}`, 'done')
     } catch {
       // The walkthrough can still close if browser storage is unavailable.
     }
+    void markTourCompleted(userId).catch((error) => console.error('Could not save walkthrough completion.', error))
     setTourOpen(false)
   }
 
