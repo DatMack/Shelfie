@@ -604,21 +604,25 @@ function BookDetails({
   const [marketPrice, setMarketPrice] = useState<LiveBookPrice | null>(null)
   const [marketPriceLoading, setMarketPriceLoading] = useState(false)
 
+  async function checkMarketPrice() {
+    setMarketPriceLoading(true)
+    try {
+      const prices = await fetchLiveBookPrices({ key: book.externalId ?? book.id, title: book.title, author: book.author, isbn: book.isbn })
+      const physical = prices.find((price) => price.id === 'ebay') ?? prices.find((price) => price.id === 'shopping') ?? null
+      setMarketPrice(physical)
+      if (physical?.averagePrice !== undefined && book.estimatedValue === undefined) onUpdate(book.id, { estimatedValue: physical.averagePrice })
+    } catch {
+      setMarketPrice(null)
+    } finally {
+      setMarketPriceLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!book.owned) { setMarketPrice(null); return }
-    let active = true
-    setMarketPriceLoading(true)
-    fetchLiveBookPrices({ key: book.externalId ?? book.id, title: book.title, author: book.author, isbn: book.isbn })
-      .then((prices) => {
-        if (!active) return
-        const physical = prices.find((price) => price.id === 'ebay') ?? prices.find((price) => price.id === 'shopping') ?? null
-        setMarketPrice(physical)
-        if (physical?.averagePrice !== undefined && book.estimatedValue === undefined) onUpdate(book.id, { estimatedValue: physical.averagePrice })
-      })
-      .catch(() => active && setMarketPrice(null))
-      .finally(() => active && setMarketPriceLoading(false))
-    return () => { active = false }
-  }, [book.id, book.owned, book.isbn, book.title])
+    if (book.estimatedValue !== undefined) return
+    void checkMarketPrice()
+  }, [book.id, book.owned, book.isbn, book.title, book.estimatedValue])
 
   async function addSignatureProof(file: File | undefined) {
     if (!file) return
@@ -709,8 +713,8 @@ function BookDetails({
         </button>
         {book.owned && (
           <><div className="market-value-summary">
-            <div><span>Book price</span><strong>{marketPrice?.averagePrice !== undefined ? money(marketPrice.averagePrice) : marketPriceLoading ? 'Checking market…' : book.estimatedValue !== undefined ? money(book.estimatedValue) : 'No market price found'}</strong><small>{marketPrice?.listingCount ? `Average of ${marketPrice.listingCount} current ${marketPrice.id === 'ebay' ? 'eBay' : 'Google Shopping'} listings${marketPrice.id === 'ebay' ? ', including listed shipping' : '; shipping may vary'}` : book.estimatedValue !== undefined ? 'Using your saved value' : 'You can add a value manually below'}</small></div>
-            {marketPrice?.url && <a href={marketPrice.url} target="_blank" rel="noreferrer">View lowest listing <ExternalLink size={13} /></a>}
+            <div><span>Book price</span><strong>{marketPrice?.averagePrice !== undefined ? money(marketPrice.averagePrice) : marketPriceLoading ? 'Checking market…' : book.estimatedValue !== undefined ? money(book.estimatedValue) : 'No market price found'}</strong><small>{marketPrice?.listingCount ? `Average of ${marketPrice.listingCount} ${marketPrice.id === 'ebay' ? 'eBay' : 'Google Shopping'} listings${marketPrice.checkedAt ? ` · checked ${new Date(marketPrice.checkedAt).toLocaleDateString()}` : ''}` : book.estimatedValue !== undefined ? 'Saved to your collection; refresh only when you want a newer estimate' : 'You can add a value manually below'}</small></div>
+            <div className="market-value-actions">{marketPrice?.url && <a href={marketPrice.url} target="_blank" rel="noreferrer">View lowest listing <ExternalLink size={13} /></a>}<button type="button" onClick={() => void checkMarketPrice()} disabled={marketPriceLoading}>{marketPriceLoading ? 'Checking…' : marketPrice ? 'Reload saved price' : 'Check market price'}</button></div>
           </div><div className="ownership-fields">
             <label>
               <span>Format</span>
