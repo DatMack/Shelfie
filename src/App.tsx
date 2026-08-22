@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive,
   BarChart3,
@@ -286,18 +286,20 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     let cancelled = false
     setDiscoverLoading(true)
     setDiscoverError('')
-    searchModernDiscoverFeed(discoverCategory, recommendationGenre, discoverRefreshPage)
-      .then((results) => {
-        if (cancelled) return
-        setDiscoverResults(results)
-      })
-      .catch(() => {
-        if (!cancelled) setDiscoverError('Fresh recommendations are taking a break. Try a search instead.')
-      })
-      .finally(() => {
-        if (!cancelled) setDiscoverLoading(false)
-    })
-    return () => { cancelled = true }
+    const timer = window.setTimeout(() => {
+      searchModernDiscoverFeed(discoverCategory, recommendationGenre, discoverRefreshPage)
+        .then((results) => {
+          if (cancelled) return
+          setDiscoverResults(results)
+        })
+        .catch(() => {
+          if (!cancelled) setDiscoverError('Fresh recommendations are taking a break. Try a search instead.')
+        })
+        .finally(() => {
+          if (!cancelled) setDiscoverLoading(false)
+        })
+    }, 240)
+    return () => { cancelled = true; window.clearTimeout(timer) }
   }, [view, recommendationGenre, discoverCategory, discoverRefreshPage, discoverTerm])
 
   function updateBook(id: string, patch: Partial<Book>) {
@@ -939,7 +941,28 @@ function DiscoverView({
   const [selected, setSelected] = useState<BookSearchResult | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [resultLimit, setResultLimit] = useState(12)
+  const [selectorOpen, setSelectorOpen] = useState(false)
+  const wheelLock = useRef(0)
   const categoryLabel = discoverCategories.find((item) => item.id === category)?.label ?? 'For You'
+  const categoryIndex = Math.max(0, discoverCategories.findIndex((item) => item.id === category))
+  const turnstileCategories = [-2, -1, 0, 1, 2].map((offset) => ({
+    offset,
+    item: discoverCategories[(categoryIndex + offset + discoverCategories.length) % discoverCategories.length],
+  }))
+
+  function rotateCategory(direction: -1 | 1) {
+    const nextIndex = (categoryIndex + direction + discoverCategories.length) % discoverCategories.length
+    onCategoryChange(discoverCategories[nextIndex].id)
+  }
+
+  function wheelCategory(event: React.WheelEvent<HTMLDivElement>) {
+    if (Math.abs(event.deltaY) < 8) return
+    event.preventDefault()
+    const now = Date.now()
+    if (now - wheelLock.current < 170) return
+    wheelLock.current = now
+    rotateCategory(event.deltaY > 0 ? 1 : -1)
+  }
 
   async function openResult(result: BookSearchResult) {
     setSelected(result)
@@ -958,28 +981,44 @@ function DiscoverView({
           <h2>Discover what readers are reaching for now.</h2>
           <p>Browse recent releases and contemporary favorites tuned toward your shelf. Search still reaches the wider catalogs when you need something older or wonderfully obscure.</p>
         </div>
-        <div className="taste-card"><Heart size={22} /><span>Your shelf signal</span><strong>{genre}</strong><small>Blended with recent releases from the last few years</small></div>
+        <div className={`taste-card genre-dial-card ${selectorOpen ? 'open' : ''}`}>
+          <div className="genre-dial-heading"><Heart size={22} /><span>Discovery shelf</span></div>
+          <button className={`genre-dial-toggle ${selectorOpen ? 'open' : ''}`} type="button" aria-expanded={selectorOpen} aria-controls="genre-turnstile" onClick={() => setSelectorOpen((current) => !current)}>
+            {selectorOpen ? <span>Choose a shelf</span> : <strong>{categoryLabel}</strong>}
+            <ChevronDown size={20} />
+          </button>
+          {selectorOpen ? (
+            <div className="genre-turnstile-shell" id="genre-turnstile" onWheel={wheelCategory}>
+              <button className="genre-step genre-step-up" type="button" onClick={() => rotateCategory(-1)} aria-label="Previous discovery shelf"><ChevronDown size={17} /></button>
+              <div className="genre-turnstile" role="listbox" aria-label="Discovery shelves">
+                {turnstileCategories.map(({ item, offset }) => (
+                  <button
+                    className={`genre-turnstile-option ${offset === 0 ? 'active' : `distance-${Math.abs(offset)}`}`}
+                    type="button"
+                    role="option"
+                    aria-selected={offset === 0}
+                    data-direction={offset < 0 ? 'above' : offset > 0 ? 'below' : 'center'}
+                    onClick={() => onCategoryChange(item.id)}
+                    key={`${item.id}:${offset}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <button className="genre-step genre-step-down" type="button" onClick={() => rotateCategory(1)} aria-label="Next discovery shelf"><ChevronDown size={17} /></button>
+              <label className="genre-scroll-rail">
+                <span>Scroll through discovery shelves</span>
+                <input type="range" min="0" max={discoverCategories.length - 1} step="1" value={categoryIndex} onChange={(event) => onCategoryChange(discoverCategories[Number(event.target.value)].id)} />
+              </label>
+            </div>
+          ) : <small>Inspired by your {genre} shelf · Click to browse genres</small>}
+        </div>
       </section>
 
       <form className="discover-search" onSubmit={onSearch}>
         <label className="search-box"><Search size={20} /><input value={term} onChange={(event) => onTermChange(event.target.value)} placeholder="Browse by title, author, ISBN, genre..." /></label>
         <button className="primary" disabled={loading} type="submit">{loading ? <LoaderCircle className="spin" size={18} /> : <Search size={18} />} Browse</button>
       </form>
-
-      <div className="discover-category-bar" role="tablist" aria-label="Discovery shelves">
-        {discoverCategories.map((item) => (
-          <button
-            className={`discover-category-chip ${category === item.id && !term ? 'active' : ''}`}
-            type="button"
-            role="tab"
-            aria-selected={category === item.id && !term}
-            onClick={() => onCategoryChange(item.id)}
-            key={item.id}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
 
       <div className="section-heading discover-heading">
         <div><p className="eyebrow">{term ? 'SEARCH RESULTS' : 'NEW & NOTEWORTHY'}</p><h2>{term ? `Results for “${term}”` : categoryLabel}</h2></div>
