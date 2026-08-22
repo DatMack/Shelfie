@@ -28,6 +28,14 @@ type GoogleVolume = {
 
 type GoogleVolumesResponse = { items?: GoogleVolume[] }
 
+export type GoogleBookSearchOptions = {
+  orderBy?: 'relevance' | 'newest'
+  startIndex?: number
+  maxResults?: number
+  langRestrict?: string
+  showPreorders?: boolean
+}
+
 function secureImage(url: string | undefined) {
   return url?.replace('http://', 'https://').replace('&edge=curl', '')
 }
@@ -78,10 +86,20 @@ function mapGoogleVolume(volume: GoogleVolume): BookSearchResult | null {
   }
 }
 
-export async function searchGoogleBooks(term: string): Promise<BookSearchResult[]> {
+export async function searchGoogleBooks(term: string, options: GoogleBookSearchOptions = {}): Promise<BookSearchResult[]> {
   const query = term.trim()
   if (!query) return []
-  const params = new URLSearchParams({ q: query, maxResults: '40', printType: 'books', projection: 'full', country: 'US' })
+  const params = new URLSearchParams({
+    q: query,
+    maxResults: String(Math.min(40, Math.max(1, options.maxResults ?? 40))),
+    printType: 'books',
+    projection: 'full',
+    country: 'US',
+    orderBy: options.orderBy ?? 'relevance',
+    startIndex: String(Math.max(0, options.startIndex ?? 0)),
+  })
+  if (options.langRestrict) params.set('langRestrict', options.langRestrict)
+  if (options.showPreorders) params.set('showPreorders', 'true')
   const apiKey = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY
   if (apiKey) params.set('key', apiKey)
   const response = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`)
