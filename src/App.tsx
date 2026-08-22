@@ -984,7 +984,7 @@ function DiscoverView({
         <div className={`taste-card genre-dial-card ${selectorOpen ? 'open' : ''}`}>
           <div className="genre-dial-heading"><Heart size={22} /><span>Discovery shelf</span></div>
           <button className={`genre-dial-toggle ${selectorOpen ? 'open' : ''}`} type="button" aria-expanded={selectorOpen} aria-controls="genre-turnstile" onClick={() => setSelectorOpen((current) => !current)}>
-            {selectorOpen ? <span>Choose a shelf</span> : <strong>{categoryLabel}</strong>}
+            {selectorOpen ? <span>Choose a genre</span> : <strong>{categoryLabel}</strong>}
             <ChevronDown size={20} />
           </button>
           {selectorOpen ? (
