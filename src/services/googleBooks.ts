@@ -44,6 +44,10 @@ function mapGoogleVolume(volume: GoogleVolume): BookSearchResult | null {
   const price = sale.retailPrice ?? sale.listPrice
   const isbn = isbnFor(volume)
   const thumbnail = secureImage(info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail)
+  const openLibraryCovers = isbn ? [
+    `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-M.jpg?default=false`,
+    `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-L.jpg?default=false`,
+  ] : []
   return {
     key: `google:${volume.id}`,
     source: 'googlebooks',
@@ -62,6 +66,7 @@ function mapGoogleVolume(volume: GoogleVolume): BookSearchResult | null {
     isbn,
     coverUrl: thumbnail,
     largeCoverUrl: thumbnail?.replace('zoom=1', 'zoom=2'),
+    alternateCoverUrls: openLibraryCovers,
     retailPrice: price?.amount,
     currencyCode: price?.currencyCode,
     buyLink: sale.buyLink,

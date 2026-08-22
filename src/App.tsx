@@ -179,6 +179,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   const [removingBook, setRemovingBook] = useState<Book | null>(null)
   const [removalMessage, setRemovalMessage] = useState('')
   const [removalBusy, setRemovalBusy] = useState(false)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -276,6 +277,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
   function requestRemoveBook(book: Book) {
     setRemovalMessage(nextBookFarewell())
+    setDetailCardOpen(false)
     setRemovingBook(book)
   }
 
@@ -286,10 +288,11 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       await deleteMyBook(removingBook.id)
       setBooks((current) => current.filter((book) => book.id !== removingBook.id))
       setSelectedBookId((current) => current === removingBook.id ? '' : current)
-      setDetailCardOpen(false)
       setRemovingBook(null)
+      setNotice(`${removingBook.title} left the shelf. ${removalMessage}`)
     } catch (error) {
       console.error('Could not remove the book.', error)
+      setNotice('That book clung to the shelf. It was not removed—please try again.')
     } finally {
       setRemovalBusy(false)
     }
@@ -369,6 +372,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
         updateBook(duplicate.id, { owned: true, format: options.format })
       }
       setSelectedBookId(duplicate.id)
+      setNotice(options.owned ? `${duplicate.title} is now marked as owned.` : `${duplicate.title} is already in your library.`)
       return
     }
 
@@ -401,6 +405,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
     setBooks((current) => [...current, newBook])
     setSelectedBookId(newBook.id)
+    setNotice(`${newBook.title} was added to ${options.owned ? 'your collection' : 'Want to Read'}.`)
   }
 
   async function searchDiscover(event: FormEvent) {
@@ -540,6 +545,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       {removingBook && <RemoveBookDialog book={removingBook} message={removalMessage} busy={removalBusy} onCancel={() => setRemovingBook(null)} onConfirm={() => void confirmRemoveBook()} />}
 
       {tourOpen && <WelcomeTour onClose={closeTour} />}
+      {notice && <div className="app-notice" role="status"><Check size={18} /><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Dismiss"><X size={16} /></button></div>}
     </main>
   )
 }
@@ -757,6 +763,7 @@ function DiscoverView({
 }) {
   const [selected, setSelected] = useState<BookSearchResult | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [resultLimit, setResultLimit] = useState(12)
 
   async function openResult(result: BookSearchResult) {
     setSelected(result)
@@ -782,14 +789,14 @@ function DiscoverView({
 
       <div className="section-heading discover-heading">
         <div><p className="eyebrow">FOR YOU</p><h2>{term ? `Results for “${term}”` : `Because you enjoy ${genre}`}</h2></div>
-        <span>Searching Google Books + Open Library</span>
+        <div className="discover-result-controls"><span>Searching Google Books + Open Library</span><label>Show <select value={resultLimit} onChange={(event) => setResultLimit(Number(event.target.value))}><option value={12}>12</option><option value={24}>24</option><option value={48}>48</option><option value={1000}>All</option></select></label></div>
       </div>
 
       {error && <div className="discover-message">{error}</div>}
       {loading && <div className="discover-message"><LoaderCircle className="spin" /> Finding books…</div>}
       {!loading && !error && (
         <div className="discover-grid">
-          {results.slice(0, 12).map((result) => {
+          {results.slice(0, resultLimit).map((result) => {
             const added = isAlreadyInLibrary(result, books)
             return (
               <article className="discover-book" key={result.key} onClick={() => void openResult(result)}>
@@ -885,7 +892,7 @@ function AddBookModal({
 }: {
   books: Book[]
   onClose: () => void
-  onAdd: (book: BookSearchResult, options: AddBookOptions) => void
+  onAdd: (book: BookSearchResult, options: AddBookOptions) => Promise<void>
 }) {
   const [term, setTerm] = useState('')
   const [status, setStatus] = useState<ReadingStatus>('Want to Read')
@@ -894,6 +901,22 @@ function AddBookModal({
   const [results, setResults] = useState<BookSearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [addingKey, setAddingKey] = useState('')
+  const [success, setSuccess] = useState('')
+
+  async function addResult(result: BookSearchResult) {
+    setAddingKey(result.key)
+    setError('')
+    setSuccess('')
+    try {
+      await onAdd(result, { status, owned, format })
+      setSuccess(`${result.title} was added successfully.`)
+    } catch (addError) {
+      setError(addError instanceof Error ? addError.message : 'That book could not be added. Please try again.')
+    } finally {
+      setAddingKey('')
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -937,6 +960,7 @@ function AddBookModal({
         </div>
 
         {error && <div className="search-message error-message">{error}</div>}
+        {success && <div className="search-message add-success"><Check size={20} /><strong>Book added</strong><span>{success}</span></div>}
         {!loading && !error && results.length === 0 && (
           <div className="search-message"><BookOpen size={32} /><strong>Search millions of books</strong><span>Open Library fills in metadata now; Shelfie will keep the personal reading and ownership details separate.</span></div>
         )}
@@ -948,7 +972,7 @@ function AddBookModal({
               <article className="search-result" key={result.key}>
                 <div className="result-cover">{result.coverUrl ? <ResilientCover book={result} alt="" /> : <BookOpen size={28} />}</div>
                 <div className="result-copy"><strong>{result.title}</strong><span>{result.author}</span><small>{[result.year, result.pages ? `${result.pages} pages` : '', result.isbn ? `ISBN ${result.isbn}` : ''].filter(Boolean).join(' · ')}</small></div>
-                <button className={alreadyAdded ? 'added-button' : 'add-result-button'} disabled={alreadyAdded} onClick={() => onAdd(result, { status, owned, format })} type="button">{alreadyAdded ? <><Check size={17} /> Added</> : <><BookPlus size={17} /> Add</>}</button>
+                <button className={alreadyAdded ? 'added-button' : 'add-result-button'} disabled={alreadyAdded || Boolean(addingKey)} onClick={() => void addResult(result)} type="button">{alreadyAdded ? <><Check size={17} /> Added</> : addingKey === result.key ? <><LoaderCircle className="spin" size={17} /> Adding…</> : <><BookPlus size={17} /> Add</>}</button>
               </article>
             )
           })}
