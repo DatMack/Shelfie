@@ -22,6 +22,7 @@ type GoogleVolume = {
     retailPrice?: { amount?: number; currencyCode?: string }
     listPrice?: { amount?: number; currencyCode?: string }
     buyLink?: string
+    isEbook?: boolean
   }
 }
 
@@ -73,6 +74,7 @@ function mapGoogleVolume(volume: GoogleVolume): BookSearchResult | null {
     previewLink: info.previewLink,
     infoLink: info.infoLink,
     saleability: sale.saleability,
+    isEbook: sale.isEbook,
   }
 }
 
@@ -132,5 +134,6 @@ export async function enrichWithGoogleBooks(book: BookSearchResult): Promise<Boo
     previewLink: info.previewLink,
     infoLink: info.infoLink,
     saleability: sale.saleability,
+    isEbook: sale.isEbook,
   }
 }
