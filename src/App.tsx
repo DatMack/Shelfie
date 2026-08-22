@@ -126,6 +126,17 @@ function loadLibrary(): Book[] {
   return sampleBooks.map((book) => ({ ...book, shelfIndex: book.shelfIndex ?? defaultShelfForStatus(book.status) }))
 }
 
+function loadCachedLibrary(userId: string): Book[] {
+  try {
+    const saved = localStorage.getItem(`${storageKey}:${userId}`)
+    if (!saved) return []
+    const parsed = JSON.parse(saved)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 function loadDetailsDisplay(): BookDetailsDisplay {
   try {
     return localStorage.getItem(detailsDisplayKey) === 'card' ? 'card' : 'side'
@@ -203,7 +214,14 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     }
     connectLibrary().catch((error) => {
       console.error('Shelfie could not load the Supabase library.', error)
-      if (!cancelled) setLibraryReady(true)
+      if (!cancelled) {
+        const cached = loadCachedLibrary(userId)
+        setBooks(cached)
+        setNotice(cached.length
+          ? 'Supabase is taking a break, so Shelfie restored the last saved copy of your library.'
+          : 'Shelfie could not load your library. Your saved books are still safe—please refresh and try again.')
+        setLibraryReady(true)
+      }
     })
     return () => { cancelled = true }
   }, [userId])
