@@ -46,7 +46,7 @@ import {
   updateMyBook,
 } from './lib/shelfieData'
 import { enrichWithGoogleBooks } from './services/googleBooks'
-import { searchEverywhere } from './services/bookSearch'
+import { discoverCategories, searchEverywhere, searchModernDiscoverFeed, type DiscoverCategoryId } from './services/bookSearch'
 import { fetchLiveBookPrices, getBookBuyingOptions, type LiveBookPrice } from './services/bookBuyingOptions'
 import { BookSearchResult, enrichWithOpenLibrary } from './services/openLibrary'
 
@@ -196,7 +196,8 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   const [discoverResults, setDiscoverResults] = useState<BookSearchResult[]>([])
   const [discoverLoading, setDiscoverLoading] = useState(false)
   const [discoverError, setDiscoverError] = useState('')
-  const [discoverSeed, setDiscoverSeed] = useState('')
+  const [discoverCategory, setDiscoverCategory] = useState<DiscoverCategoryId>('for-you')
+  const [discoverRefreshPage, setDiscoverRefreshPage] = useState(0)
   const [profileOpen, setProfileOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [removingBook, setRemovingBook] = useState<Book | null>(null)
@@ -281,29 +282,23 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   }, [books])
 
   useEffect(() => {
-    if (view !== 'discover' || discoverSeed === recommendationGenre || discoverTerm.trim()) return
+    if (view !== 'discover' || discoverTerm.trim()) return
     let cancelled = false
     setDiscoverLoading(true)
     setDiscoverError('')
-    searchEverywhere(recommendationGenre, (results) => {
-      if (!cancelled) {
-        setDiscoverResults(results.filter((result) => !isAlreadyInLibrary(result, books)))
-        setDiscoverLoading(false)
-      }
-    })
+    searchModernDiscoverFeed(discoverCategory, recommendationGenre, discoverRefreshPage)
       .then((results) => {
         if (cancelled) return
-        setDiscoverResults(results.filter((result) => !isAlreadyInLibrary(result, books)))
-        setDiscoverSeed(recommendationGenre)
+        setDiscoverResults(results)
       })
       .catch(() => {
-        if (!cancelled) setDiscoverError('Recommendations are taking a break. Try a search instead.')
+        if (!cancelled) setDiscoverError('Fresh recommendations are taking a break. Try a search instead.')
       })
       .finally(() => {
         if (!cancelled) setDiscoverLoading(false)
-      })
+    })
     return () => { cancelled = true }
-  }, [view, recommendationGenre, discoverSeed, discoverTerm, books])
+  }, [view, recommendationGenre, discoverCategory, discoverRefreshPage, discoverTerm])
 
   function updateBook(id: string, patch: Partial<Book>) {
     setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
@@ -475,7 +470,6 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
         setDiscoverLoading(false)
       })
       setDiscoverResults(results)
-      setDiscoverSeed('')
     } catch (searchError) {
       setDiscoverError(searchError instanceof Error ? searchError.message : 'Could not search for books.')
     } finally {
@@ -558,11 +552,14 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
           <DiscoverView
             books={books}
             genre={recommendationGenre}
+            category={discoverCategory}
             term={discoverTerm}
             results={discoverResults}
             loading={discoverLoading}
             error={discoverError}
             onTermChange={setDiscoverTerm}
+            onCategoryChange={(category) => { setDiscoverCategory(category); setDiscoverTerm(''); setDiscoverRefreshPage(0) }}
+            onRefresh={() => { setDiscoverTerm(''); setDiscoverRefreshPage((current) => current + 1) }}
             onSearch={searchDiscover}
             onAdd={(result) => addBook(result, { status: 'Want to Read', owned: false, format: 'Hardcover' })}
             onPurchased={(result) => addBook(result, { status: 'Want to Read', owned: true, format: 'Hardcover' })}
@@ -913,22 +910,28 @@ function Metric({ icon, label, value, detail }: { icon: ReactNode; label: string
 function DiscoverView({
   books,
   genre,
+  category,
   term,
   results,
   loading,
   error,
   onTermChange,
+  onCategoryChange,
+  onRefresh,
   onSearch,
   onAdd,
   onPurchased,
 }: {
   books: Book[]
   genre: string
+  category: DiscoverCategoryId
   term: string
   results: BookSearchResult[]
   loading: boolean
   error: string
   onTermChange: (value: string) => void
+  onCategoryChange: (value: DiscoverCategoryId) => void
+  onRefresh: () => void
   onSearch: (event: FormEvent) => void
   onAdd: (result: BookSearchResult) => void
   onPurchased: (result: BookSearchResult) => void
@@ -936,6 +939,7 @@ function DiscoverView({
   const [selected, setSelected] = useState<BookSearchResult | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [resultLimit, setResultLimit] = useState(12)
+  const categoryLabel = discoverCategories.find((item) => item.id === category)?.label ?? 'For You'
 
   async function openResult(result: BookSearchResult) {
     setSelected(result)
@@ -950,11 +954,11 @@ function DiscoverView({
     <div className="discover-page">
       <section className="discover-hero">
         <div>
-          <p className="eyebrow">SMARTER AS YOUR SHELF GROWS</p>
-          <h2>Find something that feels like you.</h2>
-          <p>For now Shelfie uses your highly rated and finished genres as a simple recommendation signal. Later this can blend ratings, moods, authors, series, DNFs and recommendation feedback.</p>
+          <p className="eyebrow">FRESH PICKS FOR YOUR NEXT OBSESSION</p>
+          <h2>Discover what readers are reaching for now.</h2>
+          <p>Browse recent releases and contemporary favorites tuned toward your shelf. Search still reaches the wider catalogs when you need something older or wonderfully obscure.</p>
         </div>
-        <div className="taste-card"><Heart size={22} /><span>Current taste signal</span><strong>{genre}</strong><small>Based only on your local demo library</small></div>
+        <div className="taste-card"><Heart size={22} /><span>Your shelf signal</span><strong>{genre}</strong><small>Blended with recent releases from the last few years</small></div>
       </section>
 
       <form className="discover-search" onSubmit={onSearch}>
@@ -962,9 +966,28 @@ function DiscoverView({
         <button className="primary" disabled={loading} type="submit">{loading ? <LoaderCircle className="spin" size={18} /> : <Search size={18} />} Browse</button>
       </form>
 
+      <div className="discover-category-bar" role="tablist" aria-label="Discovery shelves">
+        {discoverCategories.map((item) => (
+          <button
+            className={`discover-category-chip ${category === item.id && !term ? 'active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={category === item.id && !term}
+            onClick={() => onCategoryChange(item.id)}
+            key={item.id}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       <div className="section-heading discover-heading">
-        <div><p className="eyebrow">FOR YOU</p><h2>{term ? `Results for “${term}”` : `Because you enjoy ${genre}`}</h2></div>
-        <div className="discover-result-controls"><span>Searching Google Books + Open Library</span><label>Show <select value={resultLimit} onChange={(event) => setResultLimit(Number(event.target.value))}><option value={12}>12</option><option value={24}>24</option><option value={48}>48</option><option value={1000}>All</option></select></label></div>
+        <div><p className="eyebrow">{term ? 'SEARCH RESULTS' : 'NEW & NOTEWORTHY'}</p><h2>{term ? `Results for “${term}”` : categoryLabel}</h2></div>
+        <div className="discover-result-controls">
+          <span>{term ? 'Google Books + Open Library' : 'Recent Google Books editions'}</span>
+          {!term && <button className="discover-refresh-button" type="button" disabled={loading} onClick={onRefresh}><Sparkles size={14} /> Fresh picks</button>}
+          <label>Show <select value={resultLimit} onChange={(event) => setResultLimit(Number(event.target.value))}><option value={12}>12</option><option value={24}>24</option><option value={48}>48</option><option value={1000}>All</option></select></label>
+        </div>
       </div>
 
       {error && <div className="discover-message">{error}</div>}
@@ -975,11 +998,14 @@ function DiscoverView({
             const added = isAlreadyInLibrary(result, books)
             return (
               <article className="discover-book" key={result.key} onClick={() => void openResult(result)}>
-                <div className="discover-cover">{result.coverUrl ? <ResilientCover book={result} alt="" /> : <BookOpen size={34} />}</div>
+                <div className="discover-cover">
+                  {result.coverUrl ? <ResilientCover book={result} alt="" /> : <BookOpen size={34} />}
+                  {result.year && <span className="discover-year">{result.year}</span>}
+                </div>
                 <div className="discover-copy">
                   <strong>{result.title}</strong>
                   <span>{result.author}</span>
-                  <small>{[result.year, result.genre, result.pages ? `${result.pages} pages` : ''].filter(Boolean).join(' · ')}</small>
+                  <small>{[result.genre, result.pages ? `${result.pages} pages` : ''].filter(Boolean).join(' · ')}</small>
                 </div>
                 <button className={added ? 'added-button' : 'add-result-button'} disabled={added} onClick={(event) => { event.stopPropagation(); onAdd(result) }}>{added ? <><Check size={16} /> On shelf</> : <><BookPlus size={16} /> Wishlist</>}</button>
               </article>
@@ -987,6 +1013,7 @@ function DiscoverView({
           })}
         </div>
       )}
+      {!loading && !error && results.length === 0 && <div className="discover-message">No fresh matches landed this time. Try another shelf or search for something specific.</div>}
       {selected && (
         <DiscoverBookDialog
           book={selected}
