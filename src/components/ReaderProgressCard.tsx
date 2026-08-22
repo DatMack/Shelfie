@@ -1,40 +1,37 @@
-import { Flame, Gift, Sparkles } from 'lucide-react'
+import { Flame } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { getProgressForXp } from '../data/progression'
-import { useTestingProgression } from '../lib/testingAccess'
+import { loadReaderProgress, type ReaderProgress } from '../lib/shelfieData'
 
-const demoStreak = 12
+export function ReaderProgressCard({ userId }: { userId: string }) {
+  const [account, setAccount] = useState<ReaderProgress>({ totalXp: 0, level: 1, currentStreak: 0, longestStreak: 0 })
 
-export function ReaderProgressCard() {
-  const { currentXp, isMaxLevelTester } = useTestingProgression()
-  const progress = getProgressForXp(currentXp)
+  useEffect(() => {
+    let active = true
+    loadReaderProgress(userId).then((value) => active && setAccount(value)).catch(() => undefined)
+    return () => { active = false }
+  }, [userId])
+
+  const progress = getProgressForXp(account.totalXp)
 
   return (
-    <aside className="reader-progress-card" aria-label="Reader level preview">
+    <aside className="reader-progress-card" aria-label="Reader progress">
       <div className="reader-level-head">
         <div className="reader-level-badge">{progress.current.level}</div>
         <div>
           <span className="reader-level-label">READER LEVEL</span>
           <strong>{progress.current.title}</strong>
         </div>
-        <Sparkles size={18} />
+        {account.currentStreak > 0 && <span className="reader-streak"><Flame size={14} /> {account.currentStreak}</span>}
       </div>
 
       <div className="reader-xp-row">
-        <span>{currentXp.toLocaleString()} XP</span>
-        {progress.next ? <span>Level {progress.next.level}</span> : <span>MAX LEVEL</span>}
+        <span>{account.totalXp.toLocaleString()} XP</span>
+        {progress.next ? <span>{progress.xpForLevel - progress.xpIntoLevel} to Level {progress.next.level}</span> : <span>Max level</span>}
       </div>
       <div className="reader-xp-track" aria-label={`${Math.round(progress.percent)} percent to next level`}>
         <span style={{ width: `${progress.percent}%` }} />
       </div>
-
-      <div className="reader-progress-meta">
-        <span><Flame size={15} /> {demoStreak} day streak</span>
-        {progress.next?.reward && <span><Gift size={15} /> Next: {progress.next.reward.name}</span>}
-      </div>
-
-      <small className="reader-progress-note">
-        {isMaxLevelTester ? 'Tester override active · all level rewards unlocked.' : 'Preview data until accounts and reading logs go live.'}
-      </small>
     </aside>
   )
 }
