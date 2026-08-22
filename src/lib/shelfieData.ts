@@ -114,6 +114,8 @@ export function mapLibraryRows(rows: any[]): Book[] {
       valueHigh: row.manual_value_high ?? undefined,
       specialEdition: row.special_edition,
       signed: row.signed,
+      signedProofPath: row.signed_proof_path ?? undefined,
+      signedProofVerifiedAt: row.signed_proof_verified_at ?? undefined,
       firstEdition: row.first_edition,
       gifted: row.gifted,
       purchaseDate: row.purchase_date ?? undefined,
@@ -415,6 +417,34 @@ export async function uploadBookCover(file: File) {
   })
   if (error) throw error
   return client.storage.from('book-covers').getPublicUrl(path).data.publicUrl
+}
+
+export async function uploadSignedBookProof(userBookId: string, file: File) {
+  const client = requireSupabase()
+  const { data: { user }, error: userError } = await client.auth.getUser()
+  if (userError || !user) throw userError ?? new Error('Sign in to add signature proof.')
+  const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const path = `${user.id}/${userBookId}/signature-${Date.now()}.${extension}`
+  const { error: uploadError } = await client.storage.from('signed-book-proofs').upload(path, file, {
+    cacheControl: '31536000', contentType: file.type || 'image/jpeg', upsert: false,
+  })
+  if (uploadError) throw uploadError
+  const { data, error } = await client.rpc('claim_signed_book_proof', {
+    p_user_book_id: userBookId,
+    p_proof_path: path,
+  })
+  if (error) throw error
+  const result = Array.isArray(data) ? data[0] : data
+  const { data: signed, error: signedError } = await client.storage.from('signed-book-proofs').createSignedUrl(path, 3600)
+  if (signedError) throw signedError
+  return { proofPath: path, proofUrl: signed.signedUrl, xpAwarded: Boolean(result?.xp_awarded) }
+}
+
+export async function getSignedBookProofUrl(path: string) {
+  const client = requireSupabase()
+  const { data, error } = await client.storage.from('signed-book-proofs').createSignedUrl(path, 3600)
+  if (error) throw error
+  return data.signedUrl
 }
 
 export async function updateMyBook(userBookId: string, patch: Record<string, unknown>) {

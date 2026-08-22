@@ -54,6 +54,12 @@
   .purchase-option-action { grid-template-columns: 1fr 14px; }
   .purchase-option-action small { grid-column: 1 / -1; }
 }
+.signed-copy-controls { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(218,175,108,.11); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.signed-toggle,.signature-proof-button { min-height: 36px; padding: 8px 10px; border: 1px solid rgba(218,175,108,.18); border-radius: 8px; background: rgba(218,175,108,.05); color: #b99b72; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 11px; }
+.signed-toggle.active { border-color: rgba(232,178,91,.42); background: rgba(194,132,55,.14); color: #edc584; }
+.signature-proof-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.signature-proof-link { padding: 0; border: 0; background: transparent; color: #cda967; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; cursor: pointer; }
+.signature-proof-message { flex-basis: 100%; color: #bd9e72; }
 .discover-detail-actions { display: flex; gap: 9px; margin-top: 14px; }
 .discover-detail-actions button { min-height: 40px; flex: 1; }
 @media(max-width:720px){.discover-detail-modal{grid-template-columns:1fr}.discover-detail-cover{width:150px;min-height:215px;margin:auto}.remove-dialog-actions{grid-template-columns:1fr}.remove-book-card{align-items:flex-start;flex-direction:column}}

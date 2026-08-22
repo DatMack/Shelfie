@@ -25,9 +25,8 @@ type PlacementPreview = BookPlacement & { bookId: string; valid: boolean }
 const filters: Array<{ value: ShelfFilter; label: string }> = [
   { value: 'All', label: 'All' },
   { value: 'Currently Reading', label: 'Reading' },
-  { value: 'Want to Read', label: 'To Read' },
+  { value: 'Want to Read', label: 'Wishlist' },
   { value: 'Read', label: 'Read' },
-  { value: 'DNF', label: 'DNF' },
 ]
 
 const cubeColumns = 3

@@ -62,6 +62,9 @@ export type Book = {
   valueCheckedAt?: string
   specialEdition?: boolean
   signed?: boolean
+  signedProofUrl?: string
+  signedProofPath?: string
+  signedProofVerifiedAt?: string
   firstEdition?: boolean
   gifted?: boolean
   purchaseDate?: string

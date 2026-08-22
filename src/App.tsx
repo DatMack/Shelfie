@@ -41,6 +41,8 @@ import {
   mapLibraryRows,
   saveShelfOrder,
   uploadBookCover,
+  uploadSignedBookProof,
+  getSignedBookProofUrl,
   updateMyBook,
 } from './lib/shelfieData'
 import { enrichWithGoogleBooks } from './services/googleBooks'
@@ -48,7 +50,12 @@ import { searchEverywhere } from './services/bookSearch'
 import { getBookBuyingOptions } from './services/bookBuyingOptions'
 import { BookSearchResult, enrichWithOpenLibrary } from './services/openLibrary'
 
-const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
+const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read']
+const editableReadingStatuses: ReadingStatus[] = [...readingStatuses, 'DNF']
+
+function readingStatusLabel(status: ReadingStatus) {
+  return status === 'Want to Read' ? 'Wishlist' : status
+}
 const storageKey = 'shelfie-books-v1'
 const detailsDisplayKey = 'shelfie-book-details-display-v1'
 const shelfCountKey = 'shelfie-shelf-count-v1'
@@ -436,7 +443,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
     setBooks((current) => [...current, newBook])
     setSelectedBookId(newBook.id)
-    setNotice(`${newBook.title} was added to ${options.owned ? 'your collection' : 'Want to Read'}.`)
+    setNotice(`${newBook.title} was added to ${options.owned ? 'your collection' : 'your wishlist'}.`)
   }
 
   async function searchDiscover(event: FormEvent) {
@@ -592,6 +599,32 @@ function BookDetails({
   onRemove: (book: Book) => void
   variant?: BookDetailsDisplay
 }) {
+  const [proofBusy, setProofBusy] = useState(false)
+  const [proofMessage, setProofMessage] = useState('')
+
+  async function addSignatureProof(file: File | undefined) {
+    if (!file) return
+    setProofBusy(true)
+    setProofMessage('')
+    try {
+      const result = await uploadSignedBookProof(book.id, file)
+      onUpdate(book.id, { signed: true, signedProofPath: result.proofPath, signedProofUrl: result.proofUrl, signedProofVerifiedAt: new Date().toISOString() })
+      setProofMessage(result.xpAwarded ? 'Signature proof saved · +25 XP' : 'Signature proof updated')
+    } catch (error) {
+      setProofMessage(error instanceof Error ? error.message : 'Could not upload signature proof.')
+    } finally { setProofBusy(false) }
+  }
+
+  async function viewSignatureProof() {
+    if (!book.signedProofPath) return
+    try {
+      const url = await getSignedBookProofUrl(book.signedProofPath)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      setProofMessage(error instanceof Error ? error.message : 'Could not open signature proof.')
+    }
+  }
+
   return (
     <aside className={`details-panel ${variant === 'card' ? 'details-card-mode' : ''}`}>
       <div className="detail-header">
@@ -604,7 +637,7 @@ function BookDetails({
         )}
         <div>
           <div className="detail-badges">
-            <p className="status-pill">{book.status}</p>
+            <p className="status-pill">{readingStatusLabel(book.status)}</p>
             {book.owned && <p className="owned-pill">Owned</p>}
           </div>
           <h2>{book.title}</h2>
@@ -618,7 +651,7 @@ function BookDetails({
         <label>
           <span>Show this book under</span>
           <select value={book.status} onChange={(event) => onUpdate(book.id, { status: event.target.value as ReadingStatus })}>
-            {readingStatuses.map((status) => <option key={status}>{status}</option>)}
+            {editableReadingStatuses.map((status) => <option value={status} key={status}>{readingStatusLabel(status)}</option>)}
           </select>
         </label>
         <p>Status controls which reading-view shelves include this book. Each saved shelf style and reading view keeps its own arrangement.</p>
@@ -657,7 +690,7 @@ function BookDetails({
           {book.owned ? <><Check size={17} /> In my collection</> : <><BookPlus size={17} /> Mark as owned</>}
         </button>
         {book.owned && (
-          <div className="ownership-fields">
+          <><div className="ownership-fields">
             <label>
               <span>Format</span>
               <select value={book.format ?? 'Hardcover'} onChange={(event) => onUpdate(book.id, { format: event.target.value as BookFormat })}>
@@ -669,6 +702,14 @@ function BookDetails({
               <div className="money-input"><DollarSign size={15} /><input type="number" min="0" step="0.01" value={book.estimatedValue ?? ''} placeholder="0.00" onChange={(event) => onUpdate(book.id, { estimatedValue: event.target.value === '' ? undefined : Number(event.target.value) })} /></div>
             </label>
           </div>
+          <div className="signed-copy-controls">
+            <button type="button" className={book.signed ? 'signed-toggle active' : 'signed-toggle'} onClick={() => onUpdate(book.id, { signed: !book.signed })}>
+              {book.signed ? <><Check size={16} /> Signed copy</> : <><Sparkles size={16} /> Mark as signed</>}
+            </button>
+            {book.signed && <label className="signature-proof-button"><Camera size={16} /> {proofBusy ? 'Uploading…' : book.signedProofPath ? 'Update proof photo' : 'Add proof photo · +25 XP'}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" disabled={proofBusy} onChange={(event) => void addSignatureProof(event.target.files?.[0])} /></label>}
+            {book.signedProofPath && <button className="signature-proof-link" type="button" onClick={() => void viewSignatureProof()}>View private proof <ExternalLink size={13} /></button>}
+            {proofMessage && <small className="signature-proof-message">{proofMessage}</small>}
+          </div></>
         )}
       </div>
 
@@ -897,7 +938,7 @@ function DiscoverView({
                   <span>{result.author}</span>
                   <small>{[result.year, result.genre, result.pages ? `${result.pages} pages` : ''].filter(Boolean).join(' · ')}</small>
                 </div>
-                <button className={added ? 'added-button' : 'add-result-button'} disabled={added} onClick={(event) => { event.stopPropagation(); onAdd(result) }}>{added ? <><Check size={16} /> On shelf</> : <><BookPlus size={16} /> Want to Read</>}</button>
+                <button className={added ? 'added-button' : 'add-result-button'} disabled={added} onClick={(event) => { event.stopPropagation(); onAdd(result) }}>{added ? <><Check size={16} /> On shelf</> : <><BookPlus size={16} /> Wishlist</>}</button>
               </article>
             )
           })}
@@ -956,7 +997,7 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
             </>
           )}
           <div className="discover-detail-actions">
-            <button className={added ? 'added-button' : 'secondary'} disabled={added} onClick={onWantToRead}>{added ? <><Check size={16} /> Already on shelf</> : <><BookPlus size={16} /> Want to Read</>}</button>
+            <button className={added ? 'added-button' : 'secondary'} disabled={added} onClick={onWantToRead}>{added ? <><Check size={16} /> Already on shelf</> : <><BookPlus size={16} /> Wishlist</>}</button>
             <button className="primary" onClick={onPurchased}><Archive size={17} /> I bought this</button>
           </div>
           <small className="purchase-disclosure">Only prices marked as confirmed come from a retailer feed. Other buttons run an ISBN or title search. Shipping, condition, and availability may change. Use “I bought this” after checkout to add the book to your collection.</small>
@@ -1070,7 +1111,7 @@ function AddBookModal({
         <div className="add-options-row">
           <div className="status-picker" aria-label="Reading status for new book">
             {readingStatuses.map((option) => (
-              <button className={status === option ? 'status-option active' : 'status-option'} onClick={() => setStatus(option)} key={option} type="button">{option}</button>
+              <button className={status === option ? 'status-option active' : 'status-option'} onClick={() => setStatus(option)} key={option} type="button">{readingStatusLabel(option)}</button>
             ))}
           </div>
           <label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => setOwned(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label>
@@ -1176,7 +1217,7 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
       <label>Publisher<input value={publisher} onChange={(event) => setPublisher(event.target.value)} /></label>
     </div>
     <label className="manual-description">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} placeholder="Back-cover description, notes, or your own summary…" /></label>
-    <div className="manual-status-row"><select value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}>{readingStatuses.map((item) => <option key={item}>{item}</option>)}</select><label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => setOwned(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label></div>
+    <div className="manual-status-row"><select value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}>{readingStatuses.map((item) => <option value={item} key={item}>{readingStatusLabel(item)}</option>)}</select><label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => setOwned(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label></div>
     {owned && <div className="manual-fields ownership-manual"><label>Format<select value={format} onChange={(event) => setFormat(event.target.value as BookFormat)}>{bookFormats.map((item) => <option key={item}>{item}</option>)}</select></label><label>Condition<select value={condition} onChange={(event) => setCondition(event.target.value as Book['condition'])}>{['New','Like New','Very Good','Good','Fair','Poor'].map((item) => <option key={item}>{item}</option>)}</select></label><label>Paid<input type="number" min="0" step="0.01" value={purchasePrice} onChange={(event) => setPurchasePrice(event.target.value)} /></label><label>Est. value<input type="number" min="0" step="0.01" value={estimatedValue} onChange={(event) => setEstimatedValue(event.target.value)} /></label></div>}
     <div className="manual-flags"><label><input type="checkbox" checked={specialEdition} onChange={(event) => setSpecialEdition(event.target.checked)} /> Special edition</label><label><input type="checkbox" checked={signed} onChange={(event) => setSigned(event.target.checked)} /> Signed</label><label><input type="checkbox" checked={firstEdition} onChange={(event) => setFirstEdition(event.target.checked)} /> First edition</label><label><input type="checkbox" checked={gifted} onChange={(event) => setGifted(event.target.checked)} /> Gifted</label></div>
     {error && <div className="search-message error-message">{error}</div>}{success && <div className="search-message add-success"><Check size={18} /> {success}</div>}
