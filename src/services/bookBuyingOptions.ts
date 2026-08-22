@@ -22,6 +22,9 @@ export type LiveBookPrice = {
   store?: string
   url: string
   livePrice: true
+  checkedAt?: string
+  expiresAt?: string
+  cacheStatus?: 'hit' | 'refreshed' | 'stale'
 }
 
 function cleanIsbn(value: string | undefined) {
@@ -85,7 +88,7 @@ export function getBookBuyingOptions(book: BookSearchResult, livePrices: LiveBoo
   ]
 }
 
-const priceCacheTtl = 24 * 60 * 60 * 1000
+const priceCacheTtl = 14 * 24 * 60 * 60 * 1000
 
 function priceCacheKey(book: BookSearchResult) {
   return `shelfie:book-prices:v1:${searchText(book).trim().toLowerCase()}`
@@ -122,7 +125,14 @@ export async function fetchLiveBookPrices(book: BookSearchResult): Promise<LiveB
     if (stale) return stale
     throw error
   }
-  const options = Array.isArray(data?.options) ? data.options : []
+  const options = Array.isArray(data?.options)
+    ? data.options.map((option: LiveBookPrice) => ({
+        ...option,
+        checkedAt: data.checkedAt,
+        expiresAt: data.expiresAt,
+        cacheStatus: data.cacheStatus,
+      }))
+    : []
   cachePrices(book, options)
   return options
 }
