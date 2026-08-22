@@ -611,7 +611,7 @@ function BookDetails({
     fetchLiveBookPrices({ key: book.externalId ?? book.id, title: book.title, author: book.author, isbn: book.isbn })
       .then((prices) => {
         if (!active) return
-        const physical = prices.find((price) => price.id === 'ebay') ?? null
+        const physical = prices.find((price) => price.id === 'ebay') ?? prices.find((price) => price.id === 'shopping') ?? null
         setMarketPrice(physical)
         if (physical?.averagePrice !== undefined && book.estimatedValue === undefined) onUpdate(book.id, { estimatedValue: physical.averagePrice })
       })
@@ -709,7 +709,7 @@ function BookDetails({
         </button>
         {book.owned && (
           <><div className="market-value-summary">
-            <div><span>Book price</span><strong>{marketPrice?.averagePrice !== undefined ? money(marketPrice.averagePrice) : marketPriceLoading ? 'Checking market…' : book.estimatedValue !== undefined ? money(book.estimatedValue) : 'No market price found'}</strong><small>{marketPrice?.listingCount ? `Average of ${marketPrice.listingCount} current eBay listings, including listed shipping` : book.estimatedValue !== undefined ? 'Using your saved value' : 'You can add a value manually below'}</small></div>
+            <div><span>Book price</span><strong>{marketPrice?.averagePrice !== undefined ? money(marketPrice.averagePrice) : marketPriceLoading ? 'Checking market…' : book.estimatedValue !== undefined ? money(book.estimatedValue) : 'No market price found'}</strong><small>{marketPrice?.listingCount ? `Average of ${marketPrice.listingCount} current ${marketPrice.id === 'ebay' ? 'eBay' : 'Google Shopping'} listings${marketPrice.id === 'ebay' ? ', including listed shipping' : '; shipping may vary'}` : book.estimatedValue !== undefined ? 'Using your saved value' : 'You can add a value manually below'}</small></div>
             {marketPrice?.url && <a href={marketPrice.url} target="_blank" rel="noreferrer">View lowest listing <ExternalLink size={13} /></a>}
           </div><div className="ownership-fields">
             <label>
