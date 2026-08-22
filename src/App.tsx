@@ -47,7 +47,7 @@ import {
 } from './lib/shelfieData'
 import { enrichWithGoogleBooks } from './services/googleBooks'
 import { searchEverywhere } from './services/bookSearch'
-import { getBookBuyingOptions } from './services/bookBuyingOptions'
+import { fetchLiveBookPrices, getBookBuyingOptions, type LiveBookPrice } from './services/bookBuyingOptions'
 import { BookSearchResult, enrichWithOpenLibrary } from './services/openLibrary'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read']
@@ -959,7 +959,15 @@ function DiscoverView({
 }
 
 function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPurchased }: { book: BookSearchResult; loading: boolean; added: boolean; onClose: () => void; onWantToRead: () => void; onPurchased: () => void }) {
-  const buyingOptions = getBookBuyingOptions(book)
+  const [livePrices, setLivePrices] = useState<LiveBookPrice[]>([])
+  const [pricesLoading, setPricesLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    setPricesLoading(true)
+    fetchLiveBookPrices(book).then((prices) => active && setLivePrices(prices)).catch(() => active && setLivePrices([])).finally(() => active && setPricesLoading(false))
+    return () => { active = false }
+  }, [book.key, book.isbn, book.title])
+  const buyingOptions = getBookBuyingOptions(book, livePrices)
   const pricedOptions = buyingOptions.filter((option) => option.livePrice && option.price !== undefined)
   const lowestPrice = pricedOptions.length ? Math.min(...pricedOptions.map((option) => option.price!)) : undefined
   return (
@@ -978,7 +986,7 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
               <p className="discover-description">{book.description ?? 'A full description was not available for this edition.'}</p>
               {book.subjects?.length ? <div className="discover-tags">{book.subjects.slice(0, 6).map((subject) => <span key={subject}>{subject}</span>)}</div> : null}
               <div className="discover-purchase-panel">
-                <div className="purchase-panel-heading"><div><small>WHERE TO BUY</small><strong>Compare three places</strong></div><span>{lowestPrice === undefined ? 'Retailer prices open in a new tab.' : 'Lowest confirmed price is highlighted.'}</span></div>
+                <div className="purchase-panel-heading"><div><small>WHERE TO BUY</small><strong>Compare three places</strong></div><span>{pricesLoading ? 'Checking live prices…' : lowestPrice === undefined ? 'No confirmed price returned. Retailer searches are still available.' : 'Lowest confirmed price is highlighted.'}</span></div>
                 <div className="purchase-options">
                   {buyingOptions.map((option) => {
                     const formattedPrice = option.price === undefined

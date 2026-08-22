@@ -11,6 +11,16 @@ export type BookBuyingOption = {
   recommendation?: string
 }
 
+export type LiveBookPrice = {
+  id: 'ebay' | 'google'
+  price: number
+  shipping?: number
+  currencyCode: string
+  condition?: string
+  url: string
+  livePrice: true
+}
+
 function cleanIsbn(value: string | undefined) {
   return value?.replace(/[^0-9X]/gi, '')
 }
@@ -20,9 +30,11 @@ function searchText(book: BookSearchResult) {
   return isbn || [book.title, book.author === 'Unknown author' ? '' : book.author].filter(Boolean).join(' ')
 }
 
-export function getBookBuyingOptions(book: BookSearchResult): BookBuyingOption[] {
+export function getBookBuyingOptions(book: BookSearchResult, livePrices: LiveBookPrice[] = []): BookBuyingOption[] {
   const query = searchText(book)
   const encoded = encodeURIComponent(query)
+  const ebay = livePrices.find((option) => option.id === 'ebay')
+  const google = livePrices.find((option) => option.id === 'google')
   const physicalRecommendation = book.isbn
     ? 'Best place to start for this edition'
     : 'Best place to start for used copies'
@@ -31,9 +43,11 @@ export function getBookBuyingOptions(book: BookSearchResult): BookBuyingOption[]
     {
       id: 'ebay',
       store: 'eBay',
-      detail: book.isbn ? 'Searches this exact ISBN' : 'Searches by title and author',
-      url: `https://www.ebay.com/sch/i.html?_nkw=${encoded}&_sop=15`,
-      livePrice: false,
+      detail: ebay?.condition ? `${ebay.condition} · price includes listed shipping` : book.isbn ? 'Searches this exact ISBN' : 'Searches by title and author',
+      price: ebay ? ebay.price + (ebay.shipping ?? 0) : undefined,
+      currencyCode: ebay?.currencyCode,
+      url: ebay?.url ?? `https://www.ebay.com/sch/i.html?_nkw=${encoded}&_sop=15`,
+      livePrice: Boolean(ebay),
       recommendation: physicalRecommendation,
     },
     {
@@ -47,11 +61,19 @@ export function getBookBuyingOptions(book: BookSearchResult): BookBuyingOption[]
       id: 'google',
       store: 'Google Books',
       detail: book.buyLink ? 'Listed ebook price' : 'Check ebook and preview availability',
-      price: book.retailPrice,
-      currencyCode: book.currencyCode,
-      url: book.buyLink ?? `https://www.google.com/search?tbm=bks&q=${encoded}`,
-      livePrice: book.retailPrice !== undefined && Boolean(book.buyLink),
-      recommendation: book.retailPrice !== undefined && book.buyLink ? 'Best confirmed price' : undefined,
+      price: google?.price ?? book.retailPrice,
+      currencyCode: google?.currencyCode ?? book.currencyCode,
+      url: google?.url ?? book.buyLink ?? `https://www.google.com/search?tbm=bks&q=${encoded}`,
+      livePrice: Boolean(google) || (book.retailPrice !== undefined && Boolean(book.buyLink)),
+      recommendation: google || (book.retailPrice !== undefined && book.buyLink) ? 'Confirmed retailer price' : undefined,
     },
   ]
+}
+
+export async function fetchLiveBookPrices(book: BookSearchResult): Promise<LiveBookPrice[]> {
+  const { supabase } = await import('../lib/supabase')
+  if (!supabase) return []
+  const { data, error } = await supabase.functions.invoke('book-prices', { body: { isbn: book.isbn, title: book.title } })
+  if (error) throw error
+  return Array.isArray(data?.options) ? data.options : []
 }
