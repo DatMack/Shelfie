@@ -55,3 +55,74 @@ export async function searchEverywhere(term: string, onResults?: (results: BookS
   }
   return results
 }
+
+export const discoverCategories = [
+  { id: 'for-you', label: 'For You' },
+  { id: 'romantasy', label: 'Romantasy' },
+  { id: 'spicy-romance', label: 'Spicy Romance' },
+  { id: 'romance', label: 'Romance' },
+  { id: 'fantasy', label: 'Fantasy' },
+  { id: 'thrillers', label: 'Thrillers' },
+  { id: 'new-adult', label: 'New Adult' },
+] as const
+
+export type DiscoverCategoryId = typeof discoverCategories[number]['id']
+
+const modernQueries: Record<Exclude<DiscoverCategoryId, 'for-you'>, string[]> = {
+  romantasy: ['romantasy bestseller', 'fantasy romance'],
+  'spicy-romance': ['dark romance bestseller', 'new adult romance'],
+  romance: ['contemporary romance bestseller', 'romantic fiction'],
+  fantasy: ['fantasy bestseller', 'epic fantasy'],
+  thrillers: ['psychological thriller bestseller', 'mystery thriller'],
+  'new-adult': ['new adult fiction', 'new adult romance'],
+}
+
+const lowQualityTitle = /\b(summary|study guide|workbook|notebook|reading journal|analysis|unofficial companion|lesson plans?)\b/i
+const establishedPublisher = /penguin|random house|simon|schuster|harper|hachette|macmillan|bloomsbury|tor books|berkley|sourcebooks|entangled|avon|del rey|orbit|ballantine|gallery books|st\. martin/i
+
+function usefulTasteGenre(value: string) {
+  const cleaned = value.replace(/^series:/i, '').trim()
+  return cleaned && cleaned.length <= 40 && !/^(uncategorized|unknown|fiction)$/i.test(cleaned) ? cleaned : ''
+}
+
+function discoveryScore(book: BookSearchResult, newestYear: number) {
+  const year = book.year ?? newestYear - 5
+  return (year - (newestYear - 5)) * 12
+    + Number(Boolean(book.coverUrl)) * 30
+    + Number(Boolean(book.largeCoverUrl)) * 5
+    + Number(Boolean(book.description)) * 8
+    + Number(Boolean(book.isbn)) * 8
+    + Number((book.pages ?? 0) >= 120) * 4
+    + Number(establishedPublisher.test(book.publisher ?? '')) * 10
+}
+
+export async function searchModernDiscoverFeed(category: DiscoverCategoryId, tasteGenre: string, refreshPage = 0) {
+  const taste = usefulTasteGenre(tasteGenre)
+  const queries = category === 'for-you'
+    ? [taste ? `${taste} contemporary bestseller` : 'romantasy bestseller', 'romance fantasy bestseller']
+    : modernQueries[category]
+  const currentYear = new Date().getFullYear()
+  const oldestYear = currentYear - 4
+  const startIndex = (refreshPage % 2) * 20
+  const orderBy = refreshPage % 2 === 0 ? 'relevance' : 'newest'
+  const settled = await Promise.allSettled(queries.map((query) => searchGoogleBooks(query, {
+    orderBy,
+    startIndex,
+    maxResults: 40,
+    langRestrict: 'en',
+    showPreorders: true,
+  })))
+  const groups = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+  if (!groups.length) throw new Error('Fresh recommendations are taking a break. Try a search instead.')
+
+  return mergeBookResults(...groups)
+    .filter((book) => {
+      const year = book.year ?? 0
+      return year >= oldestYear
+        && year <= currentYear + 1
+        && Boolean(book.coverUrl)
+        && book.author !== 'Unknown author'
+        && !lowQualityTitle.test(book.title)
+    })
+    .sort((a, b) => discoveryScore(b, currentYear + 1) - discoveryScore(a, currentYear + 1))
+}
