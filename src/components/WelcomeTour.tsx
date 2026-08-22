@@ -36,7 +36,7 @@ const steps = [
     icon: <Settings2 size={24} />,
     eyebrow: 'NOTHING SHOULD BE HIDDEN',
     title: 'Settings explains the controls.',
-    body: 'Shelf styles, materials, color profiles, display choices, accessibility, shelf count, help, and account actions are grouped on one Settings page. You can replay this walkthrough there whenever you want.',
+    body: 'This tour only opens automatically once. If you ever want to see it again, open Settings, expand Help & walkthrough, and choose Run Shelfie walkthrough.',
   },
 ]
 
