@@ -35,7 +35,7 @@ export type Book = {
   coverUrl?: string
   isbn?: string
   externalId?: string
-  source?: 'sample' | 'openlibrary' | 'manual'
+  source?: 'sample' | 'openlibrary' | 'googlebooks' | 'manual'
 
   // Physical location in the virtual bookcase is intentionally independent from reading status.
   shelfIndex?: number
