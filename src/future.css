@@ -78,6 +78,10 @@
 .market-value-summary strong { color: #f1ca83; font: 24px Georgia,serif; }
 .market-value-summary small { color: #806c55; line-height: 1.4; }
 .market-value-summary a { flex: 0 0 auto; color: #d8ad69; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.market-value-summary > .market-value-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.market-value-actions button { border: 1px solid rgba(239,197,127,.18); border-radius: 8px; background: rgba(239,197,127,.06); color: #d8ad69; padding: 8px 10px; font: inherit; font-size: 11px; cursor: pointer; }
+.market-value-actions button:hover { border-color: rgba(239,197,127,.36); color: #f1ca83; }
+.market-value-actions button:disabled { cursor: wait; opacity: .65; }
 .ownership-fields label { display: grid; gap: 5px; color: #8f7b64; font-size: 11px; }
 .ownership-fields select,
 .ownership-fields input,
