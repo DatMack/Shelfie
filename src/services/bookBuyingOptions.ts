@@ -15,6 +15,8 @@ export type LiveBookPrice = {
   id: 'ebay' | 'google'
   price: number
   shipping?: number
+  averagePrice?: number
+  listingCount?: number
   currencyCode: string
   condition?: string
   url: string

@@ -61,12 +61,12 @@
 }
 
 .book-detail-modal {
-  width: min(1040px, 100%);
-  max-height: min(860px, calc(100vh - 44px));
+  width: min(1220px, calc(100vw - 48px));
+  max-height: min(920px, calc(100vh - 36px));
   overflow: auto;
   border: 1px solid rgba(239, 197, 127, .25);
   border-radius: 26px;
-  padding: 22px;
+  padding: 28px;
   background:
     radial-gradient(circle at 85% 8%, rgba(191, 124, 44, .13), transparent 28%),
     linear-gradient(160deg, #24170f, #100b08 70%);
@@ -75,10 +75,10 @@
 
 .book-detail-modal .modal-header {
   position: sticky;
-  top: -22px;
+  top: -28px;
   z-index: 4;
-  margin: -22px -22px 18px;
-  padding: 18px 22px 12px;
+  margin: -28px -28px 22px;
+  padding: 22px 28px 14px;
   background: linear-gradient(180deg, rgba(27, 17, 11, .99), rgba(27, 17, 11, .94), rgba(27, 17, 11, 0));
 }
 
@@ -96,6 +96,7 @@
 .details-card-mode .detail-header,
 .details-card-mode .shelf-appearance-card,
 .details-card-mode .detail-grid,
+.details-card-mode .ownership-card,
 .details-card-mode .journal-card {
   grid-column: 1 / -1;
 }
@@ -118,6 +119,11 @@
   min-width: 0;
 }
 
+@media (max-width: 1024px) {
+  .book-detail-modal { width: calc(100vw - 24px); max-height: calc(100vh - 24px); padding: 20px; border-radius: 22px; }
+  .book-detail-modal .modal-header { top: -20px; margin: -20px -20px 16px; padding: 18px 20px 12px; }
+}
+
 @media (max-width: 760px) {
   .book-detail-modal {
     padding: 14px;
@@ -137,6 +143,7 @@
   .details-card-mode .detail-header,
   .details-card-mode .shelf-appearance-card,
   .details-card-mode .detail-grid,
+  .details-card-mode .ownership-card,
   .details-card-mode .journal-card {
     grid-column: 1;
   }
@@ -154,6 +161,11 @@
   .details-card-mode .detail-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+@media (max-width: 560px) {
+  .market-value-summary { align-items: flex-start; flex-direction: column; }
+  .ownership-fields { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 460px) {

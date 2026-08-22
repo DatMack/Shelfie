@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
-type PriceOption = { id: 'ebay' | 'google'; price: number; shipping?: number; currencyCode: string; condition?: string; url: string; livePrice: true }
+type PriceOption = { id: 'ebay' | 'google'; price: number; shipping?: number; averagePrice?: number; listingCount?: number; currencyCode: string; condition?: string; url: string; livePrice: true }
 
 async function ebayToken() {
   const clientId = Deno.env.get('EBAY_CLIENT_ID')
@@ -26,12 +26,14 @@ async function ebayPrice(isbn: string, title: string): Promise<PriceOption | nul
   })
   if (!response.ok) return null
   const items = (await response.json()).itemSummaries ?? []
-  const best = items.filter((item: any) => item.price?.value && item.itemWebUrl).map((item: any) => {
+  const listings = items.filter((item: any) => item.price?.value && item.itemWebUrl).map((item: any) => {
     const shipping = Number(item.shippingOptions?.[0]?.shippingCost?.value ?? 0)
     return { item, shipping, total: Number(item.price.value) + shipping }
-  }).sort((a: any, b: any) => a.total - b.total)[0]
+  }).sort((a: any, b: any) => a.total - b.total)
+  const best = listings[0]
   if (!best) return null
-  return { id: 'ebay', price: Number(best.item.price.value), shipping: best.shipping, currencyCode: best.item.price.currency ?? 'USD', condition: best.item.condition, url: best.item.itemWebUrl, livePrice: true }
+  const averagePrice = listings.reduce((sum: number, listing: any) => sum + listing.total, 0) / listings.length
+  return { id: 'ebay', price: Number(best.item.price.value), shipping: best.shipping, averagePrice: Math.round(averagePrice * 100) / 100, listingCount: listings.length, currencyCode: best.item.price.currency ?? 'USD', condition: best.item.condition, url: best.item.itemWebUrl, livePrice: true }
 }
 
 async function googlePrice(isbn: string, title: string): Promise<PriceOption | null> {

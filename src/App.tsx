@@ -601,6 +601,24 @@ function BookDetails({
 }) {
   const [proofBusy, setProofBusy] = useState(false)
   const [proofMessage, setProofMessage] = useState('')
+  const [marketPrice, setMarketPrice] = useState<LiveBookPrice | null>(null)
+  const [marketPriceLoading, setMarketPriceLoading] = useState(false)
+
+  useEffect(() => {
+    if (!book.owned) { setMarketPrice(null); return }
+    let active = true
+    setMarketPriceLoading(true)
+    fetchLiveBookPrices({ key: book.externalId ?? book.id, title: book.title, author: book.author, isbn: book.isbn })
+      .then((prices) => {
+        if (!active) return
+        const physical = prices.find((price) => price.id === 'ebay') ?? null
+        setMarketPrice(physical)
+        if (physical?.averagePrice !== undefined && book.estimatedValue === undefined) onUpdate(book.id, { estimatedValue: physical.averagePrice })
+      })
+      .catch(() => active && setMarketPrice(null))
+      .finally(() => active && setMarketPriceLoading(false))
+    return () => { active = false }
+  }, [book.id, book.owned, book.isbn, book.title])
 
   async function addSignatureProof(file: File | undefined) {
     if (!file) return
@@ -690,7 +708,10 @@ function BookDetails({
           {book.owned ? <><Check size={17} /> In my collection</> : <><BookPlus size={17} /> Mark as owned</>}
         </button>
         {book.owned && (
-          <><div className="ownership-fields">
+          <><div className="market-value-summary">
+            <div><span>Book price</span><strong>{marketPrice?.averagePrice !== undefined ? money(marketPrice.averagePrice) : marketPriceLoading ? 'Checking market…' : book.estimatedValue !== undefined ? money(book.estimatedValue) : 'No market price found'}</strong><small>{marketPrice?.listingCount ? `Average of ${marketPrice.listingCount} current eBay listings, including listed shipping` : book.estimatedValue !== undefined ? 'Using your saved value' : 'You can add a value manually below'}</small></div>
+            {marketPrice?.url && <a href={marketPrice.url} target="_blank" rel="noreferrer">View lowest listing <ExternalLink size={13} /></a>}
+          </div><div className="ownership-fields">
             <label>
               <span>Format</span>
               <select value={book.format ?? 'Hardcover'} onChange={(event) => onUpdate(book.id, { format: event.target.value as BookFormat })}>
@@ -698,7 +719,7 @@ function BookDetails({
               </select>
             </label>
             <label>
-              <span>Estimated value</span>
+              <span>Manual value override</span>
               <div className="money-input"><DollarSign size={15} /><input type="number" min="0" step="0.01" value={book.estimatedValue ?? ''} placeholder="0.00" onChange={(event) => onUpdate(book.id, { estimatedValue: event.target.value === '' ? undefined : Number(event.target.value) })} /></div>
             </label>
           </div>
