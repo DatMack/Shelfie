@@ -105,24 +105,41 @@ export async function searchModernDiscoverFeed(category: DiscoverCategoryId, tas
   const oldestYear = currentYear - 4
   const startIndex = (refreshPage % 2) * 20
   const orderBy = refreshPage % 2 === 0 ? 'relevance' : 'newest'
-  const settled = await Promise.allSettled(queries.map((query) => searchGoogleBooks(query, {
-    orderBy,
-    startIndex,
-    maxResults: 40,
-    langRestrict: 'en',
-    showPreorders: true,
-  })))
-  const groups = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+  const googleSettled = await Promise.allSettled(queries.map(async (query) => {
+    try {
+      return await searchGoogleBooks(query, {
+        orderBy,
+        startIndex,
+        maxResults: 40,
+        langRestrict: 'en',
+        showPreorders: true,
+      })
+    } catch {
+      // Some Google Books regions reject one or more optional discovery parameters.
+      // Retry the same modern query using the known-good basic search shape.
+      return searchGoogleBooks(query)
+    }
+  }))
+  const groups = googleSettled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+
+  if (groups.flat().length < 12) {
+    const openLibrarySettled = await Promise.allSettled(queries.map((query) => searchOpenLibrary(query)))
+    groups.push(...openLibrarySettled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []))
+  }
   if (!groups.length) throw new Error('Fresh recommendations are taking a break. Try a search instead.')
 
-  return mergeBookResults(...groups)
-    .filter((book) => {
-      const year = book.year ?? 0
-      return year >= oldestYear
-        && year <= currentYear + 1
-        && Boolean(book.coverUrl)
-        && book.author !== 'Unknown author'
-        && !lowQualityTitle.test(book.title)
-    })
-    .sort((a, b) => discoveryScore(b, currentYear + 1) - discoveryScore(a, currentYear + 1))
+  const usable = mergeBookResults(...groups).filter((book) => Boolean(book.coverUrl)
+    && book.author !== 'Unknown author'
+    && !lowQualityTitle.test(book.title))
+  const recent = usable.filter((book) => {
+    const year = book.year ?? 0
+    return year >= oldestYear && year <= currentYear + 1
+  })
+  const slightlyWider = usable.filter((book) => {
+    const year = book.year ?? 0
+    return year >= currentYear - 7 && year <= currentYear + 1
+  })
+  const selected = recent.length >= 8 ? recent : mergeBookResults(recent, slightlyWider)
+
+  return selected.sort((a, b) => discoveryScore(b, currentYear + 1) - discoveryScore(a, currentYear + 1))
 }
