@@ -19,6 +19,9 @@ create index if not exists book_price_cache_expires_at_idx
 
 alter table public.book_price_cache enable row level security;
 
+revoke all on table public.book_price_cache from anon, authenticated;
+grant select, insert, update on table public.book_price_cache to service_role;
+
 drop trigger if exists book_price_cache_set_updated_at on public.book_price_cache;
 create trigger book_price_cache_set_updated_at
 before update on public.book_price_cache
