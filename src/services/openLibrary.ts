@@ -1,5 +1,6 @@
 export type BookSearchResult = {
   key: string
+  source?: 'googlebooks' | 'openlibrary'
   title: string
   author: string
   coverUrl?: string
@@ -23,6 +24,7 @@ export type BookSearchResult = {
   previewLink?: string
   infoLink?: string
   saleability?: string
+  alternateCoverUrls?: string[]
 }
 
 type OpenLibraryDoc = {
@@ -70,6 +72,7 @@ export async function searchOpenLibrary(term: string): Promise<BookSearchResult[
       const isbn = doc.isbn?.[0]
       return {
         key: doc.key,
+        source: 'openlibrary' as const,
         title: doc.title,
         author: doc.author_name?.slice(0, 2).join(', ') || 'Unknown author',
         coverUrl: coverUrl(doc.cover_i, isbn, 'M'),
