@@ -52,6 +52,7 @@
   letter-spacing: .15em;
   color: #9f805a;
 }
+.reader-streak { display: flex; align-items: center; gap: 4px; color: #efb469; font-size: 11px; }
 
 .reader-xp-row {
   display: flex;

@@ -7,6 +7,7 @@ import { ReaderProgressCard } from './ReaderProgressCard'
 
 export function ProfileDrawer({
   open,
+  userId,
   books,
   fallbackName,
   userEmail,
@@ -15,6 +16,7 @@ export function ProfileDrawer({
   onSignOut,
 }: {
   open: boolean
+  userId: string
   books: Book[]
   fallbackName?: string
   userEmail?: string
@@ -35,7 +37,6 @@ export function ProfileDrawer({
   const username = profile?.username ? `@${profile.username}` : userEmail ?? 'Shelfie reader'
   const avatar = profile?.avatarUrl || fallbackAvatar
   const read = books.filter((book) => book.status === 'Read').length
-  const owned = books.filter((book) => book.owned).length
   const pages = books.filter((book) => book.status === 'Read').reduce((sum, book) => sum + (book.pages || 0), 0)
 
   async function uploadAvatar(file?: File) {
@@ -63,13 +64,13 @@ export function ProfileDrawer({
 
       <section className={open ? 'profile-drawer open' : 'profile-drawer'} aria-hidden={!open} aria-label="Reader profile">
         <div className="profile-drawer-head">
-          <div><p className="eyebrow">YOUR READER PROFILE</p><h2>{name}</h2></div>
+          <div><p className="eyebrow">READER PROFILE</p><h2>{name}</h2></div>
           <button className="icon-button" type="button" onClick={onToggle} aria-label="Close profile"><X /></button>
         </div>
 
         <div className="profile-identity">
           <div className="profile-avatar-large">{avatar ? <img src={avatar} alt={`${name}'s profile`} /> : <UserRound size={42} />}</div>
-          <div><strong>{name}</strong><span>{username}</span><small>{profile?.bio ?? 'Building a life one chapter at a time.'}</small></div>
+          <div><span>{username}</span><small>{profile?.bio ?? 'Building a life one chapter at a time.'}</small></div>
           <input ref={fileInput} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => void uploadAvatar(event.target.files?.[0])} />
           <button className="profile-photo-button" type="button" disabled={uploading} onClick={() => fileInput.current?.click()}><Camera size={16} /> {uploading ? 'Uploading…' : 'Change photo'}</button>
         </div>
@@ -78,11 +79,10 @@ export function ProfileDrawer({
         <div className="profile-stats">
           <div><strong>{books.length}</strong><span>On shelf</span></div>
           <div><strong>{read}</strong><span>Read</span></div>
-          <div><strong>{owned}</strong><span>Owned</span></div>
           <div><strong>{pages.toLocaleString()}</strong><span>Pages</span></div>
         </div>
 
-        <ReaderProgressCard />
+        <ReaderProgressCard userId={userId} />
         <DailyQuestBoard />
 
         {onSignOut && <button className="profile-signout" type="button" onClick={() => void onSignOut()}><LogOut size={17} /> Sign out</button>}
