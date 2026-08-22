@@ -464,7 +464,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             <button onClick={() => openSettingsSection('settings-help')}>Help</button>
           </div>
         </nav>
-        <ProfileDrawer open={profileOpen} books={books} fallbackName={fallbackName} userEmail={userEmail} fallbackAvatar={fallbackAvatar} onToggle={() => setProfileOpen((current) => !current)} onSignOut={onSignOut} />
+        <ProfileDrawer open={profileOpen} userId={userId} books={books} fallbackName={fallbackName} userEmail={userEmail} fallbackAvatar={fallbackAvatar} onToggle={() => setProfileOpen((current) => !current)} onSignOut={onSignOut} />
       </aside>
 
       <section className="content">
