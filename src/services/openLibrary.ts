@@ -1,6 +1,6 @@
 export type BookSearchResult = {
   key: string
-  source?: 'googlebooks' | 'openlibrary'
+  source?: 'googlebooks' | 'openlibrary' | 'manual'
   title: string
   author: string
   coverUrl?: string
@@ -24,6 +24,7 @@ export type BookSearchResult = {
   previewLink?: string
   infoLink?: string
   saleability?: string
+  isEbook?: boolean
   alternateCoverUrls?: string[]
 }
 
