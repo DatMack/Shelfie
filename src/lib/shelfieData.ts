@@ -102,7 +102,9 @@ export function mapLibraryRows(rows: any[]): Book[] {
       coverUrl: catalog.cover_url ?? undefined,
       isbn: catalog.isbn13 ?? catalog.isbn10 ?? undefined,
       externalId: catalog.external_id ?? undefined,
-      source: catalog.external_source === 'openlibrary' ? 'openlibrary' : 'manual',
+      source: catalog.external_source === 'openlibrary' || catalog.external_source === 'googlebooks'
+        ? catalog.external_source
+        : 'manual',
       owned: row.owned,
       format: formatFromDatabase(row.format),
       condition: row.condition ? row.condition.split('_').map((part: string) => part[0].toUpperCase() + part.slice(1)).join(' ') : undefined,
@@ -150,11 +152,12 @@ export async function loadMyLibrary(userId: string) {
 
 export async function findOrCreateCatalogBook(result: BookSearchResult) {
   const client = requireSupabase()
+  const externalSource = result.source ?? 'openlibrary'
 
   const { data: existing, error: findError } = await client
     .from('books')
     .select('*')
-    .eq('external_source', 'openlibrary')
+    .eq('external_source', externalSource)
     .eq('external_id', result.key)
     .maybeSingle()
 
@@ -165,7 +168,7 @@ export async function findOrCreateCatalogBook(result: BookSearchResult) {
   const { data, error } = await client
     .from('books')
     .insert({
-      external_source: 'openlibrary',
+      external_source: externalSource,
       external_id: result.key,
       work_key: result.key,
       isbn10: compactIsbn?.length === 10 ? compactIsbn : null,
@@ -183,7 +186,7 @@ export async function findOrCreateCatalogBook(result: BookSearchResult) {
       subjects: result.subjects ?? [],
       language: result.language ?? null,
       metadata: {
-        imported_from: 'openlibrary',
+        imported_from: externalSource,
         google_volume_id: result.googleVolumeId ?? null,
         google_books_info_link: result.infoLink ?? null,
         google_books_preview_link: result.previewLink ?? null,
@@ -200,7 +203,7 @@ export async function findOrCreateCatalogBook(result: BookSearchResult) {
     const { data: raced, error: racedError } = await client
       .from('books')
       .select('*')
-      .eq('external_source', 'openlibrary')
+      .eq('external_source', externalSource)
       .eq('external_id', result.key)
       .maybeSingle()
     if (racedError || !raced) throw error
