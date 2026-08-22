@@ -150,6 +150,29 @@ export async function loadMyLibrary(userId: string) {
   return data
 }
 
+export type ReaderProgress = {
+  totalXp: number
+  level: number
+  currentStreak: number
+  longestStreak: number
+}
+
+export async function loadReaderProgress(userId: string): Promise<ReaderProgress> {
+  const client = requireSupabase()
+  const { data, error } = await client
+    .from('reader_progress')
+    .select('total_xp, level, current_streak, longest_streak')
+    .eq('user_id', userId)
+    .single()
+  if (error) throw error
+  return {
+    totalXp: data.total_xp ?? 0,
+    level: data.level ?? 1,
+    currentStreak: data.current_streak ?? 0,
+    longestStreak: data.longest_streak ?? 0,
+  }
+}
+
 export async function loadTourCompleted(userId: string) {
   const client = requireSupabase()
   const { data, error } = await client
