@@ -103,7 +103,15 @@ export async function enrichWithGoogleBooks(book: BookSearchResult): Promise<Boo
   const response = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`)
   if (!response.ok) return book
   const data = await response.json() as GoogleVolumesResponse
-  const volume = data.items?.[0]
+  const volume = data.items
+    ?.map((candidate) => ({ candidate, mapped: mapGoogleVolume(candidate) }))
+    .sort((a, b) => {
+      const score = (item: typeof a) => Number(Boolean(item.mapped?.description)) * 8
+        + Number(Boolean(item.mapped?.retailPrice)) * 4
+        + Number(Boolean(item.mapped?.coverUrl)) * 2
+        + Number(Boolean(item.mapped?.isbn))
+      return score(b) - score(a)
+    })[0]?.candidate
   if (!volume) return book
 
   const info = volume.volumeInfo ?? {}
@@ -117,7 +125,7 @@ export async function enrichWithGoogleBooks(book: BookSearchResult): Promise<Boo
     title: info.title ?? book.title,
     subtitle: info.subtitle,
     author: info.authors?.join(', ') ?? book.author,
-    description: info.description,
+    description: info.description ?? book.description,
     publishedDate: info.publishedDate,
     year: Number(info.publishedDate?.slice(0, 4)) || book.year,
     publisher: info.publisher ?? book.publisher,

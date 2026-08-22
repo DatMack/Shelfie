@@ -16,7 +16,6 @@ import {
   LoaderCircle,
   Search,
   Settings2,
-  ShoppingCart,
   Sparkles,
   Star,
   Trophy,
@@ -46,7 +45,8 @@ import {
 } from './lib/shelfieData'
 import { enrichWithGoogleBooks } from './services/googleBooks'
 import { searchEverywhere } from './services/bookSearch'
-import { BookSearchResult } from './services/openLibrary'
+import { getBookBuyingOptions } from './services/bookBuyingOptions'
+import { BookSearchResult, enrichWithOpenLibrary } from './services/openLibrary'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read', 'DNF']
 const storageKey = 'shelfie-books-v1'
@@ -856,7 +856,10 @@ function DiscoverView({
   async function openResult(result: BookSearchResult) {
     setSelected(result)
     setDetailLoading(true)
-    try { setSelected(await enrichWithGoogleBooks(result)) } finally { setDetailLoading(false) }
+    try {
+      const google = await enrichWithGoogleBooks(result)
+      setSelected(await enrichWithOpenLibrary(google))
+    } finally { setDetailLoading(false) }
   }
 
   return (
@@ -915,8 +918,9 @@ function DiscoverView({
 }
 
 function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPurchased }: { book: BookSearchResult; loading: boolean; added: boolean; onClose: () => void; onWantToRead: () => void; onPurchased: () => void }) {
-  const currency = book.currencyCode ?? 'USD'
-  const price = book.retailPrice === undefined ? undefined : new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(book.retailPrice)
+  const buyingOptions = getBookBuyingOptions(book)
+  const pricedOptions = buyingOptions.filter((option) => option.livePrice && option.price !== undefined)
+  const lowestPrice = pricedOptions.length ? Math.min(...pricedOptions.map((option) => option.price!)) : undefined
   return (
     <div className="modal-backdrop discover-detail-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="discover-detail-modal" role="dialog" aria-modal="true" aria-label={`Discover ${book.title}`}>
@@ -933,8 +937,21 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
               <p className="discover-description">{book.description ?? 'A full description was not available for this edition.'}</p>
               {book.subjects?.length ? <div className="discover-tags">{book.subjects.slice(0, 6).map((subject) => <span key={subject}>{subject}</span>)}</div> : null}
               <div className="discover-purchase-panel">
-                <div><small>{book.isEbook === false ? 'GOOGLE BOOKS LISTED PRICE' : 'GOOGLE EBOOK PRICE'}</small><strong>{price ?? (book.saleability === 'FREE' ? 'Free' : 'No listed price')}</strong><span>{book.buyLink ? 'Google price and availability may change at checkout.' : 'Physical purchase price and collection value can be recorded manually.'}</span></div>
-                {book.buyLink && <a className="buy-book-button" href={book.buyLink} target="_blank" rel="noreferrer"><ShoppingCart size={18} /> Buy book <ExternalLink size={14} /></a>}
+                <div className="purchase-panel-heading"><div><small>WHERE TO BUY</small><strong>Compare three places</strong></div><span>{lowestPrice === undefined ? 'Retailer prices open in a new tab.' : 'Lowest confirmed price is highlighted.'}</span></div>
+                <div className="purchase-options">
+                  {buyingOptions.map((option) => {
+                    const formattedPrice = option.price === undefined
+                      ? 'Check price'
+                      : new Intl.NumberFormat('en-US', { style: 'currency', currency: option.currencyCode ?? 'USD' }).format(option.price)
+                    const bestConfirmed = option.livePrice && option.price === lowestPrice
+                    return (
+                      <a className={`purchase-option ${bestConfirmed ? 'best-confirmed' : ''}`} href={option.url} target="_blank" rel="noreferrer" key={option.id}>
+                        <div><strong>{option.store}</strong><span>{option.detail}</span></div>
+                        <div className="purchase-option-action">{(bestConfirmed || option.recommendation) && <small>{bestConfirmed ? 'BEST LISTED PRICE' : option.recommendation}</small>}<b>{formattedPrice}</b><ExternalLink size={14} /></div>
+                      </a>
+                    )
+                  })}
+                </div>
               </div>
             </>
           )}
@@ -942,7 +959,7 @@ function DiscoverBookDialog({ book, loading, added, onClose, onWantToRead, onPur
             <button className={added ? 'added-button' : 'secondary'} disabled={added} onClick={onWantToRead}>{added ? <><Check size={16} /> Already on shelf</> : <><BookPlus size={16} /> Want to Read</>}</button>
             <button className="primary" onClick={onPurchased}><Archive size={17} /> I bought this</button>
           </div>
-          <small className="purchase-disclosure">Shelfie cannot see retailer checkout activity yet. Use “I bought this” after checkout to add the book to your collection.</small>
+          <small className="purchase-disclosure">Only prices marked as confirmed come from a retailer feed. Other buttons run an ISBN or title search. Shipping, condition, and availability may change. Use “I bought this” after checkout to add the book to your collection.</small>
         </div>
       </section>
     </div>

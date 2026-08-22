@@ -46,6 +46,16 @@ type OpenLibraryResponse = {
   docs: OpenLibraryDoc[]
 }
 
+type OpenLibraryDetail = {
+  description?: string | { value?: string }
+  works?: Array<{ key?: string }>
+}
+
+function descriptionText(value: OpenLibraryDetail['description']) {
+  if (typeof value === 'string') return value.trim() || undefined
+  return value?.value?.trim() || undefined
+}
+
 function coverUrl(coverId: number | undefined, isbn: string | undefined, size: 'M' | 'L') {
   if (coverId) return `https://covers.openlibrary.org/b/id/${coverId}-${size}.jpg?default=false`
   if (isbn) return `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-${size}.jpg?default=false`
@@ -89,4 +99,46 @@ export async function searchOpenLibrary(term: string): Promise<BookSearchResult[
         editionKeys: doc.edition_key?.slice(0, 20),
       }
     })
+}
+
+async function fetchOpenLibraryDetail(path: string | undefined) {
+  if (!path) return undefined
+  const normalized = path.endsWith('.json') ? path : `${path}.json`
+  try {
+    const response = await fetch(`https://openlibrary.org${normalized}`)
+    if (!response.ok) return undefined
+    return await response.json() as OpenLibraryDetail
+  } catch {
+    return undefined
+  }
+}
+
+export async function enrichWithOpenLibrary(book: BookSearchResult): Promise<BookSearchResult> {
+  if (book.description) return book
+
+  const isbn = book.isbn?.replace(/[^0-9X]/gi, '')
+  const paths = [
+    book.key.startsWith('/works/') ? book.key : undefined,
+    isbn ? `/isbn/${isbn}` : undefined,
+    ...(book.editionKeys ?? []).slice(0, 4).map((key) => `/books/${key}`),
+  ].filter((path): path is string => Boolean(path))
+
+  const seen = new Set<string>()
+  for (const path of paths) {
+    if (seen.has(path)) continue
+    seen.add(path)
+    const detail = await fetchOpenLibraryDetail(path)
+    const direct = descriptionText(detail?.description)
+    if (direct) return { ...book, description: direct }
+
+    for (const work of detail?.works ?? []) {
+      if (!work.key || seen.has(work.key)) continue
+      seen.add(work.key)
+      const workDetail = await fetchOpenLibraryDetail(work.key)
+      const workDescription = descriptionText(workDetail?.description)
+      if (workDescription) return { ...book, description: workDescription }
+    }
+  }
+
+  return book
 }
