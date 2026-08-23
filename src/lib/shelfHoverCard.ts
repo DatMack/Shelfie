@@ -1,11 +1,3 @@
-type HoverBook = {
-  id: string
-  title?: string
-  author?: string
-  year?: number
-}
-
-const libraryStorageKey = 'shelfie-books-v1'
 const tooltipId = 'shelfie-book-hover-card'
 
 function getTooltip() {
@@ -28,17 +20,6 @@ function getTooltip() {
   return tooltip
 }
 
-function loadBook(id: string): HoverBook | undefined {
-  try {
-    const raw = localStorage.getItem(libraryStorageKey)
-    if (!raw) return undefined
-    const books = JSON.parse(raw) as HoverBook[]
-    return books.find((book) => book.id === id)
-  } catch {
-    return undefined
-  }
-}
-
 function positionTooltip(tooltip: HTMLElement, clientX: number, clientY: number) {
   const maxWidth = 236
   const left = Math.min(window.innerWidth - maxWidth - 12, Math.max(12, clientX + 14))
@@ -52,23 +33,19 @@ function positionTooltip(tooltip: HTMLElement, clientX: number, clientY: number)
 function showTooltip(bookElement: HTMLElement, clientX: number, clientY: number) {
   if (bookElement.closest('.bookcase-organizing')) return
 
-  const id = bookElement.dataset.shelfBookId
-  if (!id) return
+  if (!bookElement.dataset.shelfBookId) return
 
   // Avoid the browser's slower native title popup competing with Shelfie's card.
   bookElement.removeAttribute('title')
-
-  const book = loadBook(id)
-  if (!book) return
 
   const tooltip = getTooltip()
   const title = tooltip.querySelector<HTMLElement>('.shelf-book-hover-title')
   const meta = tooltip.querySelector<HTMLElement>('.shelf-book-hover-meta')
 
-  if (title) title.textContent = book.title || 'Book'
+  if (title) title.textContent = bookElement.dataset.bookTitle || 'Book'
   if (meta) {
-    const author = book.author || 'Unknown author'
-    const year = Number.isFinite(book.year) ? String(book.year) : 'Year unknown'
+    const author = bookElement.dataset.bookAuthor || 'Unknown author'
+    const year = bookElement.dataset.bookYear || 'Year unknown'
     meta.textContent = `${author} · ${year}`
   }
 
@@ -106,6 +83,20 @@ document.addEventListener('pointerout', (event) => {
 
   const related = event.relatedTarget as Node | null
   if (related && book.contains(related)) return
+  hideTooltip()
+})
+
+document.addEventListener('focusin', (event) => {
+  const target = event.target as HTMLElement | null
+  const book = target?.closest<HTMLElement>('.book-spine[data-shelf-book-id]')
+  if (!book) return
+  const bounds = book.getBoundingClientRect()
+  showTooltip(book, bounds.right, bounds.top + bounds.height / 2)
+})
+
+document.addEventListener('focusout', (event) => {
+  const target = event.target as HTMLElement | null
+  if (!target?.closest('.book-spine[data-shelf-book-id]')) return
   hideTooltip()
 })
 

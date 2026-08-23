@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { BookOpen, Camera, Headphones, ImagePlus, Smartphone, Sparkles, Trash2 } from 'lucide-react'
-import type { Book, BookFormat, ShelfDisplayStyle, SpineDesign } from '../data/books'
+import type { Book, BookFormat, ShelfDisplayStyle, SpineDesign, SpineTitleFont } from '../data/books'
 import { uploadCustomSpine } from '../lib/shelfieData'
 
 const displayStyles: ShelfDisplayStyle[] = [
@@ -13,6 +13,8 @@ const displayStyles: ShelfDisplayStyle[] = [
   'E-reader',
   'Digital Tile',
 ]
+
+const spineTitleFonts: SpineTitleFont[] = ['Classic', 'Modern', 'Typewriter', 'Storybook']
 
 export function defaultDisplayStyle(format?: BookFormat): ShelfDisplayStyle {
   if (format === 'Audiobook') return 'Cassette'
@@ -118,8 +120,8 @@ export function ShelfAppearanceControl({
 
           {spineDesign === 'Leather' ? (
             <div className="spine-color-fields">
-              <label><span>Leather</span><input type="color" value={book.color} onChange={(event) => onUpdate(book.id, { color: event.target.value })} /></label>
-              <label><span>Lettering</span><input type="color" value={book.accent} onChange={(event) => onUpdate(book.id, { accent: event.target.value })} /></label>
+              <label><span>Book color</span><input aria-label="Book color" type="color" value={book.color} onChange={(event) => onUpdate(book.id, { color: event.target.value })} /></label>
+              <label><span>Details</span><input aria-label="Spine detail color" type="color" value={book.accent} onChange={(event) => onUpdate(book.id, { accent: event.target.value })} /></label>
             </div>
           ) : (
             <div className="custom-spine-controls">
@@ -156,6 +158,44 @@ export function ShelfAppearanceControl({
               )}
             </div>
           )}
+
+          <div className="spine-title-settings">
+            <label className="spine-title-toggle">
+              <span>
+                <strong>Show title on spine</strong>
+                <small>Only changes this book</small>
+              </span>
+              <input
+                type="checkbox"
+                checked={book.showSpineTitle ?? true}
+                onChange={(event) => onUpdate(book.id, { showSpineTitle: event.target.checked })}
+              />
+              <span className="toggle-ui" aria-hidden="true" />
+            </label>
+
+            {(book.showSpineTitle ?? true) && (
+              <div className="spine-title-fields">
+                <label>
+                  <span>Title font</span>
+                  <select
+                    value={book.spineTitleFont ?? 'Classic'}
+                    onChange={(event) => onUpdate(book.id, { spineTitleFont: event.target.value as SpineTitleFont })}
+                  >
+                    {spineTitleFonts.map((font) => <option key={font} value={font}>{font}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Title color</span>
+                  <input
+                    aria-label="Spine title color"
+                    type="color"
+                    value={book.spineTitleColor ?? book.accent}
+                    onChange={(event) => onUpdate(book.id, { spineTitleColor: event.target.value })}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

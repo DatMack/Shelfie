@@ -12,6 +12,7 @@ export type ShelfDisplayStyle =
   | 'E-reader'
   | 'Digital Tile'
 export type SpineDesign = 'Leather' | 'Custom Image'
+export type SpineTitleFont = 'Classic' | 'Modern' | 'Typewriter' | 'Storybook'
 
 export type Book = {
   id: string
@@ -45,6 +46,9 @@ export type Book = {
   displayEditionId?: string
   displayCoverUrl?: string
   spineDesign?: SpineDesign
+  showSpineTitle?: boolean
+  spineTitleFont?: SpineTitleFont
+  spineTitleColor?: string
   customSpineUrl?: string | null
   customSpinePositionX?: number
   customSpinePositionY?: number

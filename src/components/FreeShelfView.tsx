@@ -42,7 +42,6 @@ type BookSpineProps = {
   index: number
   selected: boolean
   glowFocus: boolean
-  detailsDisplay: 'side' | 'card'
   organizeMode: boolean
   placement?: BookPlacement
   onSelect: () => void
@@ -93,6 +92,13 @@ function effectiveDisplayStyle(book: Book): ShelfDisplayStyle {
   if (book.format === 'Audiobook') return 'Cassette'
   if (book.format === 'Ebook') return 'E-reader'
   return 'Spine'
+}
+
+function spineTitleFontStack(font: Book['spineTitleFont']) {
+  if (font === 'Modern') return 'Inter, ui-sans-serif, system-ui, sans-serif'
+  if (font === 'Typewriter') return '"Courier New", Courier, monospace'
+  if (font === 'Storybook') return '"Palatino Linotype", Palatino, Georgia, serif'
+  return 'Georgia, "Times New Roman", serif'
 }
 
 function shelfCoverUrl(book: Book) {
@@ -192,7 +198,6 @@ function BookSpine({
   index,
   selected,
   glowFocus,
-  detailsDisplay,
   organizeMode,
   placement,
   onSelect,
@@ -206,10 +211,11 @@ function BookSpine({
   const customSpine = displayStyle === 'Spine' && book.spineDesign === 'Custom Image' && Boolean(book.customSpineUrl)
   const showsCoverArt = (Boolean(coverUrl) && displayStyle === 'Front Cover') || customSpine
   const frontCover = displayStyle === 'Front Cover'
+  const showsSpineTitle = displayStyle === 'Spine' && (book.showSpineTitle ?? true)
 
   return (
     <button
-      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${customSpine ? 'book-custom-spine' : 'book-leather-spine'} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
+      className={`book-spine book-format-${formatClass} book-display-${displayStyle.toLowerCase().replaceAll(' ', '-')} ${frontCover ? 'book-front-cover' : ''} ${customSpine ? 'book-custom-spine' : 'book-leather-spine'} ${showsSpineTitle ? 'book-show-spine-title' : 'book-hide-spine-title'} ${showsCoverArt ? 'book-has-cover-art' : ''} ${selected ? 'selected' : ''} ${glowFocus ? 'glow-focus' : ''} ${placement ? 'free-placed-book' : ''} ${organizeMode ? 'organize-book' : ''} ${orientation === 'horizontal' ? 'book-horizontal' : ''}`}
       style={{
         '--book-color': book.color,
         '--book-accent': book.accent,
@@ -218,6 +224,8 @@ function BookSpine({
         '--spine-position-x': `${book.customSpinePositionX ?? 50}%`,
         '--spine-position-y': `${book.customSpinePositionY ?? 50}%`,
         '--spine-zoom': `${(book.customSpineZoom ?? 100) / 100}`,
+        '--spine-title-color': book.spineTitleColor ?? book.accent,
+        '--spine-title-font': spineTitleFontStack(book.spineTitleFont),
         ...(placement ? {
           '--book-x': `${placement.x}px`,
           '--book-y': `${placement.y}px`,
@@ -225,11 +233,14 @@ function BookSpine({
         } : {}),
       } as CSSProperties}
       data-shelf-book-id={book.id}
+      data-book-title={book.title}
+      data-book-author={book.author}
+      data-book-year={book.year}
       draggable={false}
       onPointerDown={onPointerDown}
       onClick={onSelect}
       aria-label={`${book.title} by ${book.author}. ${book.format ?? 'Book'} format.${organizeMode ? ' Organize mode active.' : ''}`}
-      title={organizeMode ? 'Drag to place · click to select rotation controls' : detailsDisplay === 'card' ? 'Click for book details' : 'Click to select'}
+      title={organizeMode ? 'Drag to place · click to select rotation controls' : `${book.title} — ${book.author}`}
     >
       {showsCoverArt && (
         <img
@@ -243,7 +254,7 @@ function BookSpine({
       )}
       {book.owned && <span className="owned-dot" title="Owned" />}
       {(!frontCover || !coverUrl) && <span className="spine-ornament">✦</span>}
-      {(!frontCover || !coverUrl) && <span className="spine-title">{book.title}</span>}
+      {showsSpineTitle && <span className="spine-title">{book.title}</span>}
       {(!frontCover || !coverUrl) && <span className="spine-author">{book.author}</span>}
     </button>
   )
@@ -646,7 +657,6 @@ export function FreeShelfView({
         index={index}
         selected={organizeMode ? activeBookId === book.id : selectedBook?.id === book.id}
         glowFocus={glowFocus}
-        detailsDisplay={detailsDisplay}
         organizeMode={organizeMode}
         placement={placement}
         onPointerDown={(event) => beginBookDrag(event, book)}

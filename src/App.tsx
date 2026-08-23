@@ -386,7 +386,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     if (Object.keys(databasePatch).length > 0) {
       void updateMyBook(id, databasePatch)
         .then(() => {
-          if (patch.rating !== undefined || patch.status !== undefined || patch.owned !== undefined || patch.favorite !== undefined || patch.spineDesign !== undefined || patch.customSpineUrl !== undefined) {
+          if (patch.rating !== undefined || patch.status !== undefined || patch.owned !== undefined || patch.favorite !== undefined || patch.spineDesign !== undefined || patch.customSpineUrl !== undefined || patch.showSpineTitle !== undefined || patch.spineTitleFont !== undefined || patch.spineTitleColor !== undefined) {
             setEngagementRefreshToken((current) => current + 1)
           }
         })

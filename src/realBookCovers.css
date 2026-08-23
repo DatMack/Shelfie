@@ -18,11 +18,22 @@
   position: absolute;
 }
 
-/* Shelf books are visual objects now. Metadata lives in the hover card instead of being printed over the art. */
-.freeform-bookcase .book-spine .spine-title,
+/* Author metadata stays in the hover card. Readers may independently show or hide each title. */
 .freeform-bookcase .book-spine .spine-author,
 .freeform-bookcase .book-spine .spine-ornament {
   display: none !important;
+}
+
+.freeform-bookcase .book-spine.book-hide-spine-title .spine-title {
+  display: none !important;
+}
+
+.freeform-bookcase .book-spine.book-show-spine-title .spine-title {
+  position: relative;
+  z-index: 2;
+  display: block !important;
+  color: var(--spine-title-color, var(--book-accent));
+  font-family: var(--spine-title-font, Georgia, serif);
 }
 
 .shelf-cover-art {

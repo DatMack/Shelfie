@@ -66,6 +66,16 @@ function displayStyleFromDatabase(style?: string | null): Book['displayStyle'] {
   return style ? map[style] : undefined
 }
 
+function spineTitleFontFromDatabase(font?: string | null): Book['spineTitleFont'] {
+  const map: Record<string, NonNullable<Book['spineTitleFont']>> = {
+    classic: 'Classic',
+    modern: 'Modern',
+    typewriter: 'Typewriter',
+    storybook: 'Storybook',
+  }
+  return font ? map[font] ?? 'Classic' : 'Classic'
+}
+
 function colorsFor(seed: string) {
   const palette = [
     ['#6b4327', '#e3b064'], ['#26384c', '#ddad66'], ['#35563d', '#f3c66c'],
@@ -129,6 +139,9 @@ export function mapLibraryRows(rows: any[]): Book[] {
       displayEditionId: row.display_edition_id ?? undefined,
       displayCoverUrl: row.display_cover_url ?? undefined,
       spineDesign: row.spine_design === 'custom_image' ? 'Custom Image' : 'Leather',
+      showSpineTitle: row.spine_title_visible ?? true,
+      spineTitleFont: spineTitleFontFromDatabase(row.spine_title_font),
+      spineTitleColor: row.spine_title_color ?? row.spine_accent ?? colors.accent,
       customSpineUrl: row.custom_spine_url ?? undefined,
       customSpinePositionX: row.custom_spine_position_x ?? 50,
       customSpinePositionY: row.custom_spine_position_y ?? 50,
@@ -390,6 +403,9 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.color !== undefined) output.spine_color = patch.color
   if (patch.accent !== undefined) output.spine_accent = patch.accent
   if (patch.spineDesign !== undefined) output.spine_design = patch.spineDesign === 'Custom Image' ? 'custom_image' : 'leather'
+  if (patch.showSpineTitle !== undefined) output.spine_title_visible = patch.showSpineTitle
+  if (patch.spineTitleFont !== undefined) output.spine_title_font = patch.spineTitleFont.toLowerCase()
+  if (patch.spineTitleColor !== undefined) output.spine_title_color = patch.spineTitleColor
   if (patch.customSpineUrl !== undefined) output.custom_spine_url = patch.customSpineUrl
   if (patch.customSpinePositionX !== undefined) output.custom_spine_position_x = patch.customSpinePositionX
   if (patch.customSpinePositionY !== undefined) output.custom_spine_position_y = patch.customSpinePositionY
