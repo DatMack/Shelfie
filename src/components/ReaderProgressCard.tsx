@@ -1,10 +1,10 @@
-import { Flame } from 'lucide-react'
+import { Coins, Flame } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getProgressForXp } from '../data/progression'
 import { loadReaderProgress, type ReaderProgress } from '../lib/shelfieData'
 
 export function ReaderProgressCard({ userId, refreshToken = 0 }: { userId: string; refreshToken?: number }) {
-  const [account, setAccount] = useState<ReaderProgress>({ totalXp: 0, level: 1, currentStreak: 0, longestStreak: 0 })
+  const [account, setAccount] = useState<ReaderProgress>({ totalXp: 0, level: 1, coins: 0, lifetimeCoins: 0, currentStreak: 0, longestStreak: 0 })
 
   useEffect(() => {
     let active = true
@@ -27,11 +27,12 @@ export function ReaderProgressCard({ userId, refreshToken = 0 }: { userId: strin
 
       <div className="reader-xp-row">
         <span>{account.totalXp.toLocaleString()} XP</span>
-        {progress.next ? <span>{progress.xpForLevel - progress.xpIntoLevel} to Level {progress.next.level}</span> : <span>Max level</span>}
+        {progress.next ? <span>{progress.xpForLevel - progress.xpIntoLevel} to Level {progress.next.level}</span> : <span className="reader-coin-balance"><Coins size={12} /> {account.coins.toLocaleString()} coins</span>}
       </div>
       <div className="reader-xp-track" aria-label={`${Math.round(progress.percent)} percent to next level`}>
         <span style={{ width: `${progress.percent}%` }} />
       </div>
+      {!progress.next && <small className="reader-max-note">Future XP now becomes Shelf Coins.</small>}
     </aside>
   )
 }

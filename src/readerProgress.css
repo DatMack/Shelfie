@@ -62,6 +62,9 @@
   color: #a89071;
 }
 
+.reader-coin-balance { display: inline-flex; align-items: center; gap: 4px; color: #efbd67; }
+.reader-max-note { display: block; margin-top: 8px; color: #8f775b; font-size: 9px; line-height: 1.35; }
+
 .reader-xp-track {
   height: 7px;
   margin-top: 5px;

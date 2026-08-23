@@ -28,6 +28,7 @@ import './customSpines.css'
 import './profileDrawer.css'
 import './libraryTools.css'
 import './engagement.css'
+import './shop.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

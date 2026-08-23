@@ -18,6 +18,7 @@ import {
   NotebookPen,
   Search,
   Settings2,
+  ShoppingBag,
   Sparkles,
   Star,
   Trophy,
@@ -33,6 +34,7 @@ import { WelcomeTour } from './components/WelcomeTour'
 import { AchievementsPage } from './components/AchievementsPage'
 import { JournalPage } from './components/JournalPage'
 import { ReadingLogPage } from './components/ReadingLogPage'
+import { ShopPage } from './components/ShopPage'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
 import { nextBookFarewell } from './data/bookFarewells'
 import { loadShelfCountForStyle, loadShelfStyle, saveShelfCountForStyle } from './lib/customizationRuntime'
@@ -56,7 +58,7 @@ import { discoverCategories, searchEverywhere, searchModernDiscoverFeed, type Di
 import { fetchLiveBookPrices, getBookBuyingOptions, type LiveBookPrice } from './services/bookBuyingOptions'
 import { BookSearchResult, enrichWithOpenLibrary } from './services/openLibrary'
 
-const readingStatuses: ReadingStatus[] = ['Currently Reading', 'Want to Read', 'Read']
+const readingStatuses: ReadingStatus[] = ['Currently Reading', 'To Be Read', 'Want to Read', 'Read']
 const editableReadingStatuses: ReadingStatus[] = [...readingStatuses, 'DNF']
 
 function readingStatusLabel(status: ReadingStatus) {
@@ -79,7 +81,7 @@ const palette = [
   ['#273f50', '#e5c88e'],
 ]
 
-type View = 'shelf' | 'collection' | 'discover' | 'reading-log' | 'journal' | 'achievements' | 'settings'
+type View = 'shelf' | 'collection' | 'discover' | 'reading-log' | 'journal' | 'achievements' | 'shop' | 'settings'
 type AddBookOptions = {
   status: ReadingStatus
   owned: boolean
@@ -96,8 +98,14 @@ type BookDetailsDisplay = 'side' | 'card'
 
 function defaultShelfForStatus(status: ReadingStatus) {
   if (status === 'Read') return 1
-  if (status === 'Want to Read' || status === 'DNF') return 2
+  if (status === 'To Be Read' || status === 'Want to Read' || status === 'DNF') return 2
   return 0
+}
+
+function normalizeAddBookOptions(options: AddBookOptions): AddBookOptions {
+  if (options.owned && options.status === 'Want to Read') return { ...options, status: 'To Be Read' }
+  if (!options.owned && options.status === 'To Be Read') return { ...options, status: 'Want to Read' }
+  return options
 }
 
 function loadLibrary(): Book[] {
@@ -381,12 +389,17 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
   function updateBook(id: string, patch: Partial<Book>) {
     const previous = books.find((book) => book.id === id)
-    setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
-    const databasePatch = bookPatchToDatabase(patch)
+    const normalizedPatch = { ...patch }
+    if (patch.status === 'To Be Read') normalizedPatch.owned = true
+    if (patch.status === 'Want to Read') normalizedPatch.owned = false
+    if (patch.owned === true && previous?.status === 'Want to Read' && patch.status === undefined) normalizedPatch.status = 'To Be Read'
+    if (patch.owned === false && previous?.status === 'To Be Read' && patch.status === undefined) normalizedPatch.status = 'Want to Read'
+    setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...normalizedPatch } : book)))
+    const databasePatch = bookPatchToDatabase(normalizedPatch)
     if (Object.keys(databasePatch).length > 0) {
       void updateMyBook(id, databasePatch)
         .then(() => {
-          if (patch.rating !== undefined || patch.status !== undefined || patch.owned !== undefined || patch.favorite !== undefined || patch.spineDesign !== undefined || patch.customSpineUrl !== undefined || patch.showSpineTitle !== undefined || patch.spineTitleFont !== undefined || patch.spineTitleColor !== undefined) {
+          if (normalizedPatch.rating !== undefined || normalizedPatch.status !== undefined || normalizedPatch.owned !== undefined || normalizedPatch.favorite !== undefined || normalizedPatch.spineDesign !== undefined || normalizedPatch.customSpineUrl !== undefined || normalizedPatch.showSpineTitle !== undefined || normalizedPatch.spineTitleFont !== undefined || normalizedPatch.spineTitleColor !== undefined) {
             setEngagementRefreshToken((current) => current + 1)
           }
         })
@@ -396,8 +409,8 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             setBooks((current) => current.map((book) => {
               if (book.id !== id) return book
               const rollback: Partial<Book> = {}
-              for (const key of Object.keys(patch) as Array<keyof Book>) {
-                if (book[key] === patch[key]) (rollback as Record<string, unknown>)[key] = previous[key]
+              for (const key of Object.keys(normalizedPatch) as Array<keyof Book>) {
+                if (book[key] === normalizedPatch[key]) (rollback as Record<string, unknown>)[key] = previous[key]
               }
               return { ...book, ...rollback }
             }))
@@ -497,37 +510,38 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   }
 
   async function addBook(result: BookSearchResult, options: AddBookOptions) {
+    const normalizedOptions = normalizeAddBookOptions(options)
     const enriched = result.source === 'manual' ? result : await enrichWithGoogleBooks(result)
     const duplicate = books.find(
       (book) => book.externalId === enriched.key || (book.isbn && enriched.isbn && book.isbn === enriched.isbn),
     )
     if (duplicate) {
-      if (options.owned && !duplicate.owned) {
-        updateBook(duplicate.id, { owned: true, format: options.format })
+      if (normalizedOptions.owned && !duplicate.owned) {
+        updateBook(duplicate.id, { owned: true, status: 'To Be Read', format: normalizedOptions.format })
       }
       setSelectedBookId(duplicate.id)
-      setNotice(options.owned ? `${duplicate.title} is now marked as owned.` : `${duplicate.title} is already in your library.`)
+      setNotice(normalizedOptions.owned ? `${duplicate.title} is now marked as owned and To Be Read.` : `${duplicate.title} is already in your library.`)
       return
     }
 
     const colors = colorsFor(enriched.title)
-    const userBook = await addCatalogBookToMyShelf({ result: enriched, ...options })
+    const userBook = await addCatalogBookToMyShelf({ result: enriched, ...normalizedOptions })
     const ownershipPatch = bookPatchToDatabase({
-      condition: options.condition,
-      purchasePrice: options.purchasePrice,
-      estimatedValue: options.estimatedValue,
-      specialEdition: options.specialEdition,
-      signed: options.signed,
-      firstEdition: options.firstEdition,
-      gifted: options.gifted,
+      condition: normalizedOptions.condition,
+      purchasePrice: normalizedOptions.purchasePrice,
+      estimatedValue: normalizedOptions.estimatedValue,
+      specialEdition: normalizedOptions.specialEdition,
+      signed: normalizedOptions.signed,
+      firstEdition: normalizedOptions.firstEdition,
+      gifted: normalizedOptions.gifted,
     })
     if (Object.keys(ownershipPatch).length) await updateMyBook(userBook.id, ownershipPatch)
     const newBook: Book = {
       id: userBook.id,
       title: enriched.title,
       author: enriched.author,
-      status: options.status,
-      shelfIndex: 0,
+      status: normalizedOptions.status,
+      shelfIndex: defaultShelfForStatus(normalizedOptions.status),
       color: colors.color,
       accent: colors.accent,
       pages: enriched.pages || 0,
@@ -541,21 +555,21 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       isbn: enriched.isbn,
       externalId: enriched.key,
       source: enriched.source ?? 'openlibrary',
-      owned: options.owned,
-      ...(options.owned ? { format: options.format } : {}),
-      condition: options.condition,
-      purchasePrice: options.purchasePrice,
-      estimatedValue: options.estimatedValue,
-      specialEdition: options.specialEdition,
-      signed: options.signed,
-      firstEdition: options.firstEdition,
-      gifted: options.gifted,
-      ...(options.status === 'Currently Reading' ? { currentPage: 0 } : {}),
+      owned: normalizedOptions.owned,
+      ...(normalizedOptions.owned ? { format: normalizedOptions.format } : {}),
+      condition: normalizedOptions.condition,
+      purchasePrice: normalizedOptions.purchasePrice,
+      estimatedValue: normalizedOptions.estimatedValue,
+      specialEdition: normalizedOptions.specialEdition,
+      signed: normalizedOptions.signed,
+      firstEdition: normalizedOptions.firstEdition,
+      gifted: normalizedOptions.gifted,
+      ...(normalizedOptions.status === 'Currently Reading' ? { currentPage: 0 } : {}),
     }
 
     setBooks((current) => [...current, newBook])
     setSelectedBookId(newBook.id)
-    setNotice(`${newBook.title} was added to ${options.owned ? 'your collection' : 'your wishlist'}.`)
+    setNotice(`${newBook.title} was added to ${normalizedOptions.owned ? 'your To Be Read collection' : 'your wishlist'}.`)
     setEngagementRefreshToken((current) => current + 1)
   }
 
@@ -615,6 +629,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     'reading-log': { eyebrow: 'READING ACTIVITY', title: 'Reading Log' },
     journal: { eyebrow: 'YOUR PRIVATE NOTES', title: 'Journal' },
     achievements: { eyebrow: 'MILESTONES', title: 'Achievements' },
+    shop: { eyebrow: 'CUSTOMIZATION', title: 'Shelfie Shop' },
     settings: { eyebrow: 'SHELFIE', title: 'Settings' },
   }
 
@@ -632,6 +647,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
           <button className={view === 'journal' ? 'nav-active' : ''} onClick={() => openJournal()}><NotebookPen size={18} /> Journal</button>
           <button><Users size={18} /> Friends <span className="nav-soon">soon</span></button>
           <button className={view === 'achievements' ? 'nav-active' : ''} onClick={openAchievements}><Trophy size={18} /> Achievements</button>
+          <button className={view === 'shop' ? 'nav-active' : ''} onClick={() => setView('shop')}><ShoppingBag size={18} /> Shop</button>
           <button className={view === 'settings' ? 'nav-active settings-nav-button' : 'settings-nav-button'} onClick={() => { openSettingsSection(); setSettingsMenuOpen((current) => !current) }}><Settings2 size={18} /> Settings <ChevronDown className={settingsMenuOpen ? 'settings-menu-chevron open' : 'settings-menu-chevron'} size={15} /></button>
           <div className={settingsMenuOpen ? 'settings-section-menu open' : 'settings-section-menu'}>
             <button onClick={() => openSettingsSection('settings-layout')}>Bookshelf layout</button>
@@ -692,7 +708,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             onRefresh={() => { setDiscoverTerm(''); setDiscoverRefreshPage((current) => current + 1) }}
             onSearch={searchDiscover}
             onAdd={(result) => addBook(result, { status: 'Want to Read', owned: false, format: 'Hardcover' })}
-            onPurchased={(result) => addBook(result, { status: 'Want to Read', owned: true, format: 'Hardcover' })}
+            onPurchased={(result) => addBook(result, { status: 'To Be Read', owned: true, format: 'Hardcover' })}
           />
         )}
 
@@ -701,6 +717,8 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
         {view === 'journal' && <JournalPage books={books} initialBookId={journalBookId} onActivity={refreshEngagement} />}
 
         {view === 'achievements' && <AchievementsPage refreshToken={engagementRefreshToken} />}
+
+        {view === 'shop' && <ShopPage userId={userId} refreshToken={engagementRefreshToken} />}
 
         {view === 'settings' && (
           <SettingsPage
@@ -1329,6 +1347,18 @@ function AddBookModal({
   const [success, setSuccess] = useState('')
   const [mode, setMode] = useState<'search' | 'manual'>('search')
 
+  function chooseStatus(nextStatus: ReadingStatus) {
+    setStatus(nextStatus)
+    if (nextStatus === 'To Be Read') setOwned(true)
+    if (nextStatus === 'Want to Read') setOwned(false)
+  }
+
+  function chooseOwnership(nextOwned: boolean) {
+    setOwned(nextOwned)
+    if (nextOwned && status === 'Want to Read') setStatus('To Be Read')
+    if (!nextOwned && status === 'To Be Read') setStatus('Want to Read')
+  }
+
   async function addResult(result: BookSearchResult) {
     setAddingKey(result.key)
     setError('')
@@ -1389,10 +1419,10 @@ function AddBookModal({
         <div className="add-options-row">
           <div className="status-picker" aria-label="Reading status for new book">
             {readingStatuses.map((option) => (
-              <button className={status === option ? 'status-option active' : 'status-option'} onClick={() => setStatus(option)} key={option} type="button">{readingStatusLabel(option)}</button>
+              <button className={status === option ? 'status-option active' : 'status-option'} onClick={() => chooseStatus(option)} key={option} type="button">{readingStatusLabel(option)}</button>
             ))}
           </div>
-          <label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => setOwned(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label>
+          <label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => chooseOwnership(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label>
           {owned && <select className="format-select" value={format} onChange={(event) => setFormat(event.target.value as BookFormat)}>{bookFormats.map((option) => <option key={option}>{option}</option>)}</select>}
         </div>
 
@@ -1432,7 +1462,7 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
   const [publisher, setPublisher] = useState('')
   const [description, setDescription] = useState('')
   const [coverFile, setCoverFile] = useState<File | null>(null)
-  const [status, setStatus] = useState<ReadingStatus>('Want to Read')
+  const [status, setStatus] = useState<ReadingStatus>('To Be Read')
   const [owned, setOwned] = useState(true)
   const [format, setFormat] = useState<BookFormat>('Paperback')
   const [condition, setCondition] = useState<Book['condition']>('Good')
@@ -1445,6 +1475,18 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  function chooseManualStatus(nextStatus: ReadingStatus) {
+    setStatus(nextStatus)
+    if (nextStatus === 'To Be Read') setOwned(true)
+    if (nextStatus === 'Want to Read') setOwned(false)
+  }
+
+  function chooseManualOwnership(nextOwned: boolean) {
+    setOwned(nextOwned)
+    if (nextOwned && status === 'Want to Read') setStatus('To Be Read')
+    if (!nextOwned && status === 'To Be Read') setStatus('Want to Read')
+  }
 
   async function saveManualBook(event: FormEvent) {
     event.preventDefault()
@@ -1495,7 +1537,7 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
       <label>Publisher<input value={publisher} onChange={(event) => setPublisher(event.target.value)} /></label>
     </div>
     <label className="manual-description">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} placeholder="Back-cover description, notes, or your own summary…" /></label>
-    <div className="manual-status-row"><select value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}>{readingStatuses.map((item) => <option value={item} key={item}>{readingStatusLabel(item)}</option>)}</select><label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => setOwned(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label></div>
+    <div className="manual-status-row"><select value={status} onChange={(event) => chooseManualStatus(event.target.value as ReadingStatus)}>{readingStatuses.map((item) => <option value={item} key={item}>{readingStatusLabel(item)}</option>)}</select><label className="owned-check"><input type="checkbox" checked={owned} onChange={(event) => chooseManualOwnership(event.target.checked)} /><span><Archive size={16} /> I own this book</span></label></div>
     {owned && <div className="manual-fields ownership-manual"><label>Format<select value={format} onChange={(event) => setFormat(event.target.value as BookFormat)}>{bookFormats.map((item) => <option key={item}>{item}</option>)}</select></label><label>Condition<select value={condition} onChange={(event) => setCondition(event.target.value as Book['condition'])}>{['New','Like New','Very Good','Good','Fair','Poor'].map((item) => <option key={item}>{item}</option>)}</select></label><label>Paid<input type="number" min="0" step="0.01" value={purchasePrice} onChange={(event) => setPurchasePrice(event.target.value)} /></label><label>Est. value<input type="number" min="0" step="0.01" value={estimatedValue} onChange={(event) => setEstimatedValue(event.target.value)} /></label></div>}
     <div className="manual-flags"><label><input type="checkbox" checked={specialEdition} onChange={(event) => setSpecialEdition(event.target.checked)} /> Special edition</label><label><input type="checkbox" checked={signed} onChange={(event) => setSigned(event.target.checked)} /> Signed</label><label><input type="checkbox" checked={firstEdition} onChange={(event) => setFirstEdition(event.target.checked)} /> First edition</label><label><input type="checkbox" checked={gifted} onChange={(event) => setGifted(event.target.checked)} /> Gifted</label></div>
     {error && <div className="search-message error-message">{error}</div>}{success && <div className="search-message add-success"><Check size={18} /> {success}</div>}

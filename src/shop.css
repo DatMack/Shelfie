@@ -1,0 +1,67 @@
+.shop-page { display: grid; gap: 20px; }
+.shop-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(240px, .65fr);
+  gap: 24px;
+  align-items: stretch;
+  padding: 25px;
+  overflow: hidden;
+  border: 1px solid rgba(223,175,105,.16);
+  border-radius: 23px;
+  background: radial-gradient(circle at 85% 20%, rgba(208,143,54,.13), transparent 31%), linear-gradient(135deg, rgba(39,28,21,.92), rgba(13,12,12,.98));
+}
+.shop-hero-copy { align-self: center; max-width: 780px; }
+.shop-hero h2 { color: #f3d4a7; font-size: clamp(30px, 4vw, 43px); line-height: 1.05; }
+.shop-hero-copy > p:not(.eyebrow) { max-width: 720px; margin: 13px 0 0; color: #a88c69; line-height: 1.65; }
+.shop-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 13px; margin-top: 20px; }
+.shop-actions > span { display: inline-flex; align-items: center; gap: 6px; color: #8e795f; font-size: 12px; }
+.shop-pay-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(239,197,127,.2);
+  border-radius: 11px;
+  background: rgba(255,255,255,.035);
+  color: #dfbd8b;
+}
+.shop-pay-button:hover { border-color: rgba(239,197,127,.38); background: rgba(255,255,255,.055); }
+.coin-vault {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 22px;
+  border: 1px solid rgba(223,175,105,.15);
+  border-radius: 18px;
+  background: rgba(11,9,8,.4);
+  text-align: center;
+}
+.coin-vault.unlocked { box-shadow: inset 0 0 32px rgba(209,143,55,.06); }
+.coin-vault-icon { width: 50px; height: 50px; display: grid; place-items: center; margin-bottom: 4px; border-radius: 50%; color: #211309; background: radial-gradient(circle at 35% 30%, #ffe3a4, #d69c49 58%, #88501d); }
+.coin-vault small { color: #9a7b55; letter-spacing: .15em; }
+.coin-vault strong { max-width: 100%; overflow: hidden; color: #f1c477; font: 42px Georgia, serif; text-overflow: ellipsis; }
+.coin-vault > span:last-child { color: #806c55; font-size: 11px; }
+.shop-message { display: flex; align-items: center; gap: 8px; padding: 13px 15px; border: 1px solid rgba(223,175,105,.14); border-radius: 13px; background: rgba(213,158,73,.07); color: #d8b47d; }
+.shop-catalog-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 3px 3px 0; }
+.shop-catalog-heading h3 { margin: 2px 0 0; color: #efd5ae; font: 28px Georgia, serif; }
+.shop-catalog-heading > span { display: inline-flex; align-items: center; gap: 6px; color: #8b755a; font-size: 12px; }
+.shop-empty { min-height: 285px; display: grid; place-items: center; align-content: center; gap: 8px; padding: 28px; border: 1px dashed rgba(223,175,105,.16); border-radius: 21px; background: rgba(255,255,255,.015); color: #8f795f; text-align: center; }
+.shop-empty-icon { width: 66px; height: 66px; display: grid; place-items: center; border-radius: 50%; background: rgba(213,158,73,.08); color: #d09a50; }
+.shop-empty h3 { margin: 7px 0 0; color: #e7c89e; font: 24px Georgia, serif; }
+.shop-empty p { max-width: 560px; margin: 0; line-height: 1.55; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 14px; }
+.shop-item { min-width: 0; padding: 14px; border: 1px solid rgba(223,175,105,.13); border-radius: 17px; background: rgba(255,255,255,.025); }
+.shop-item-preview { height: 150px; display: grid; place-items: center; margin-bottom: 13px; border-radius: 12px; color: #d7a85e; background: linear-gradient(145deg, rgba(108,68,36,.4), rgba(22,17,14,.8)); }
+.shop-item > small { color: #9a774d; text-transform: capitalize; }
+.shop-item h3 { margin: 5px 0 3px; color: #e8cfaa; font: 20px Georgia, serif; }
+.shop-item p { min-height: 42px; margin: 0 0 14px; color: #8e7a62; font-size: 13px; line-height: 1.45; }
+.shop-item button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 10px; border: 1px solid rgba(223,175,105,.2); border-radius: 10px; background: rgba(213,158,73,.1); color: #e8bd78; font-weight: 700; }
+.shop-item button:disabled { opacity: .48; }
+
+@media (max-width: 760px) {
+  .shop-hero { grid-template-columns: 1fr; padding: 19px; }
+  .coin-vault { min-height: 180px; }
+  .shop-catalog-heading { align-items: flex-start; flex-direction: column; gap: 7px; }
+}

@@ -10,6 +10,7 @@ function requireSupabase() {
 function statusToDatabase(status: ReadingStatus) {
   const map: Record<ReadingStatus, string> = {
     'Want to Read': 'want_to_read',
+    'To Be Read': 'to_be_read',
     'Currently Reading': 'currently_reading',
     Read: 'read',
     DNF: 'dnf',
@@ -33,6 +34,7 @@ function formatToDatabase(format?: BookFormat) {
 function statusFromDatabase(status: string): ReadingStatus {
   const map: Record<string, ReadingStatus> = {
     want_to_read: 'Want to Read',
+    to_be_read: 'To Be Read',
     currently_reading: 'Currently Reading',
     read: 'Read',
     dnf: 'DNF',
@@ -168,6 +170,8 @@ export async function loadMyLibrary(userId: string) {
 export type ReaderProgress = {
   totalXp: number
   level: number
+  coins: number
+  lifetimeCoins: number
   currentStreak: number
   longestStreak: number
 }
@@ -176,13 +180,15 @@ export async function loadReaderProgress(userId: string): Promise<ReaderProgress
   const client = requireSupabase()
   const { data, error } = await client
     .from('reader_progress')
-    .select('total_xp, level, current_streak, longest_streak')
+    .select('total_xp, level, coins, lifetime_coins, current_streak, longest_streak')
     .eq('user_id', userId)
     .single()
   if (error) throw error
   return {
     totalXp: data.total_xp ?? 0,
     level: data.level ?? 1,
+    coins: data.coins ?? 0,
+    lifetimeCoins: data.lifetime_coins ?? 0,
     currentStreak: data.current_streak ?? 0,
     longestStreak: data.longest_streak ?? 0,
   }

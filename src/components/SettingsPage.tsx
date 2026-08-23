@@ -118,7 +118,7 @@ export function SettingsPage({
             <button type="button" onClick={() => changeShelfCount(shelfCount + 1)} disabled={shelfCount >= 6} aria-label="Add a shelf">+</button>
           </div>
         </div>
-        <div className="settings-tip"><LayoutGrid size={17} /><span>Each shelf style remembers its finish and shelf count. Inside that style, All, Reading, To Read, Read, and DNF can each have their own independently arranged showcase.</span></div>
+        <div className="settings-tip"><LayoutGrid size={17} /><span>Each shelf style remembers its finish and shelf count. Inside that style, All, Reading, TBR, Wishlist, Read, and DNF can each have their own independently arranged showcase.</span></div>
       </section>
 
       <section className="settings-section" id="settings-finish">

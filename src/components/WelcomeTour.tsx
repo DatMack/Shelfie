@@ -18,7 +18,7 @@ const steps = [
     icon: <LayoutGrid size={24} />,
     eyebrow: 'BUILD MORE THAN ONE SHOWCASE',
     title: 'Every shelf style and reading view remembers its own layout.',
-    body: 'Classic, Cube, Floating, and future shelf styles are saved independently. All, Reading, Wishlist, and Read can each have their own arrangement. You can still mark the occasional unfinished book as DNF from its details.',
+    body: 'Classic, Cube, Floating, and future shelf styles are saved independently. All, Reading, TBR, Wishlist, and Read can each have their own arrangement. You can still mark the occasional unfinished book as DNF from its details.',
   },
   {
     icon: <BookOpen size={24} />,
