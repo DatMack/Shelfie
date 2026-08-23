@@ -24,8 +24,21 @@ export function getLocalActivityDate(date = new Date()) {
   return `${year}-${month}-${day}`
 }
 
+let syncedTimezone = ''
+
+async function syncMyTimezone() {
+  if (!supabase) throw new Error('Shelfie is not connected to Supabase.')
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  if (syncedTimezone === timezone) return
+  const { error } = await supabase.rpc('set_my_timezone', { p_timezone: timezone })
+  if (error) throw error
+  syncedTimezone = timezone
+}
+
 export async function ensureMyDailyQuests(date = new Date()) {
   if (!supabase) throw new Error('Shelfie is not connected to Supabase.')
+
+  await syncMyTimezone()
 
   const { data, error } = await supabase.rpc('ensure_my_daily_quests', {
     p_local_date: getLocalActivityDate(date),
