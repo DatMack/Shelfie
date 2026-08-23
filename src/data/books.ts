@@ -48,6 +48,7 @@ export type Book = {
   spineDesign?: SpineDesign
   showSpineTitle?: boolean
   spineTitleFont?: SpineTitleFont
+  spineTitleSize?: number
   spineTitleColor?: string
   customSpineUrl?: string | null
   customSpinePositionX?: number

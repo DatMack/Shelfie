@@ -143,6 +143,7 @@ export function mapLibraryRows(rows: any[]): Book[] {
       spineDesign: row.spine_design === 'custom_image' ? 'Custom Image' : 'Leather',
       showSpineTitle: row.spine_title_visible ?? true,
       spineTitleFont: spineTitleFontFromDatabase(row.spine_title_font),
+      spineTitleSize: row.spine_title_size ?? 12,
       spineTitleColor: row.spine_title_color ?? row.spine_accent ?? colors.accent,
       customSpineUrl: row.custom_spine_url ?? undefined,
       customSpinePositionX: row.custom_spine_position_x ?? 50,
@@ -411,6 +412,7 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.spineDesign !== undefined) output.spine_design = patch.spineDesign === 'Custom Image' ? 'custom_image' : 'leather'
   if (patch.showSpineTitle !== undefined) output.spine_title_visible = patch.showSpineTitle
   if (patch.spineTitleFont !== undefined) output.spine_title_font = patch.spineTitleFont.toLowerCase()
+  if (patch.spineTitleSize !== undefined) output.spine_title_size = patch.spineTitleSize
   if (patch.spineTitleColor !== undefined) output.spine_title_color = patch.spineTitleColor
   if (patch.customSpineUrl !== undefined) output.custom_spine_url = patch.customSpineUrl
   if (patch.customSpinePositionX !== undefined) output.custom_spine_position_x = patch.customSpinePositionX

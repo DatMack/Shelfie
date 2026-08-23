@@ -181,7 +181,7 @@
 
 .free-layout-zone .free-placed-book.book-horizontal .spine-title {
   max-width: 72%;
-  font-size: 10px;
+  font-size: min(var(--spine-title-size, 10px), 20px);
 }
 
 .free-layout-zone .free-placed-book.book-horizontal .spine-author,

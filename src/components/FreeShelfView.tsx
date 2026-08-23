@@ -227,6 +227,7 @@ function BookSpine({
         '--spine-zoom': `${(book.customSpineZoom ?? 100) / 100}`,
         '--spine-title-color': book.spineTitleColor ?? book.accent,
         '--spine-title-font': spineTitleFontStack(book.spineTitleFont),
+        '--spine-title-size': `${book.spineTitleSize ?? 12}px`,
         ...(placement ? {
           '--book-x': `${placement.x}px`,
           '--book-y': `${placement.y}px`,

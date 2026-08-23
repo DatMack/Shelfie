@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { BookOpen, Camera, Headphones, ImagePlus, Smartphone, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, BookOpen, Camera, Headphones, ImagePlus, Smartphone, Sparkles, Trash2 } from 'lucide-react'
 import type { Book, BookFormat, ShelfDisplayStyle, SpineDesign, SpineTitleFont } from '../data/books'
 import { uploadCustomSpine } from '../lib/shelfieData'
 
@@ -15,6 +15,13 @@ const displayStyles: ShelfDisplayStyle[] = [
 ]
 
 const spineTitleFonts: SpineTitleFont[] = ['Classic', 'Modern', 'Typewriter', 'Storybook']
+
+function spineTitleFontStack(font: SpineTitleFont | undefined) {
+  if (font === 'Modern') return 'Inter, ui-sans-serif, system-ui, sans-serif'
+  if (font === 'Typewriter') return '"Courier New", Courier, monospace'
+  if (font === 'Storybook') return '"Palatino Linotype", Palatino, Georgia, serif'
+  return 'Georgia, "Times New Roman", serif'
+}
 
 export function defaultDisplayStyle(format?: BookFormat): ShelfDisplayStyle {
   if (format === 'Audiobook') return 'Cassette'
@@ -43,6 +50,11 @@ export function ShelfAppearanceControl({
   const [uploadError, setUploadError] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
   const spineDesign: SpineDesign = book.spineDesign ?? 'Leather'
+  const spineTitleSize = book.spineTitleSize ?? 12
+
+  function changeSpineTitleSize(direction: -1 | 1) {
+    onUpdate(book.id, { spineTitleSize: Math.max(7, Math.min(32, spineTitleSize + direction * 5)) })
+  }
 
   async function chooseSpineImage(file?: File) {
     if (!file) return
@@ -174,25 +186,45 @@ export function ShelfAppearanceControl({
             </label>
 
             {(book.showSpineTitle ?? true) && (
-              <div className="spine-title-fields">
-                <label>
-                  <span>Title font</span>
-                  <select
-                    value={book.spineTitleFont ?? 'Classic'}
-                    onChange={(event) => onUpdate(book.id, { spineTitleFont: event.target.value as SpineTitleFont })}
+              <div className="spine-title-customizer">
+                <div className="spine-title-fields">
+                  <label>
+                    <span>Title font</span>
+                    <select
+                      value={book.spineTitleFont ?? 'Classic'}
+                      onChange={(event) => onUpdate(book.id, { spineTitleFont: event.target.value as SpineTitleFont })}
+                    >
+                      {spineTitleFonts.map((font) => <option key={font} value={font}>{font}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Title color</span>
+                    <input
+                      aria-label="Spine title color"
+                      type="color"
+                      value={book.spineTitleColor ?? book.accent}
+                      onChange={(event) => onUpdate(book.id, { spineTitleColor: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <div className="spine-title-preview-row">
+                  <div
+                    className={book.customSpineUrl && spineDesign === 'Custom Image' ? 'spine-title-preview custom-image' : 'spine-title-preview'}
+                    style={{ '--preview-color': book.color, '--preview-accent': book.accent } as React.CSSProperties}
+                    aria-label="Live spine title preview"
                   >
-                    {spineTitleFonts.map((font) => <option key={font} value={font}>{font}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <span>Title color</span>
-                  <input
-                    aria-label="Spine title color"
-                    type="color"
-                    value={book.spineTitleColor ?? book.accent}
-                    onChange={(event) => onUpdate(book.id, { spineTitleColor: event.target.value })}
-                  />
-                </label>
+                    {book.customSpineUrl && spineDesign === 'Custom Image' && <img src={book.customSpineUrl} alt="" />}
+                    <span style={{ color: book.spineTitleColor ?? book.accent, fontFamily: spineTitleFontStack(book.spineTitleFont), fontSize: `${spineTitleSize}px` }}>{book.title}</span>
+                  </div>
+                  <div className="spine-title-size-control">
+                    <div><span>Font size</span><strong>{spineTitleSize}px</strong></div>
+                    <div className="spine-title-size-buttons">
+                      <button type="button" aria-label="Decrease spine title size by 5" disabled={spineTitleSize <= 7} onClick={() => changeSpineTitleSize(-1)}><ArrowDown size={17} /></button>
+                      <button type="button" aria-label="Increase spine title size by 5" disabled={spineTitleSize >= 32} onClick={() => changeSpineTitleSize(1)}><ArrowUp size={17} /></button>
+                    </div>
+                    <small>Each arrow changes this book by 5px.</small>
+                  </div>
+                </div>
               </div>
             )}
           </div>

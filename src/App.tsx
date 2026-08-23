@@ -399,7 +399,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     if (Object.keys(databasePatch).length > 0) {
       void updateMyBook(id, databasePatch)
         .then(() => {
-          if (normalizedPatch.rating !== undefined || normalizedPatch.status !== undefined || normalizedPatch.owned !== undefined || normalizedPatch.favorite !== undefined || normalizedPatch.spineDesign !== undefined || normalizedPatch.customSpineUrl !== undefined || normalizedPatch.showSpineTitle !== undefined || normalizedPatch.spineTitleFont !== undefined || normalizedPatch.spineTitleColor !== undefined) {
+          if (normalizedPatch.rating !== undefined || normalizedPatch.status !== undefined || normalizedPatch.owned !== undefined || normalizedPatch.favorite !== undefined || normalizedPatch.spineDesign !== undefined || normalizedPatch.customSpineUrl !== undefined || normalizedPatch.showSpineTitle !== undefined || normalizedPatch.spineTitleFont !== undefined || normalizedPatch.spineTitleSize !== undefined || normalizedPatch.spineTitleColor !== undefined) {
             setEngagementRefreshToken((current) => current + 1)
           }
         })
@@ -573,13 +573,19 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     setEngagementRefreshToken((current) => current + 1)
   }
 
-  async function searchDiscover(event: FormEvent) {
+  async function searchDiscover(event: FormEvent, searchAllGenres: boolean) {
     event.preventDefault()
     if (!discoverTerm.trim()) return
     setDiscoverLoading(true)
     setDiscoverError('')
     try {
-      const results = await searchEverywhere(discoverTerm, (partial) => {
+      const categoryScope = discoverCategory === 'for-you'
+        ? recommendationGenre
+        : discoverCategories.find((item) => item.id === discoverCategory)?.label ?? ''
+      const catalogTerm = searchAllGenres || !categoryScope
+        ? discoverTerm
+        : `${discoverTerm} ${categoryScope}`
+      const results = await searchEverywhere(catalogTerm, (partial) => {
         setDiscoverResults(partial)
         setDiscoverLoading(false)
       })
@@ -1096,7 +1102,7 @@ function DiscoverView({
   onTermChange: (value: string) => void
   onCategoryChange: (value: DiscoverCategoryId) => void
   onRefresh: () => void
-  onSearch: (event: FormEvent) => void
+  onSearch: (event: FormEvent, searchAllGenres: boolean) => void
   onAdd: (result: BookSearchResult) => void
   onPurchased: (result: BookSearchResult) => void
 }) {
@@ -1104,6 +1110,7 @@ function DiscoverView({
   const [detailLoading, setDetailLoading] = useState(false)
   const [resultLimit, setResultLimit] = useState(12)
   const [selectorOpen, setSelectorOpen] = useState(false)
+  const [searchAllGenres, setSearchAllGenres] = useState(true)
   const selectorRef = useRef<HTMLDivElement>(null)
   const wheelLock = useRef(0)
   const categoryLabel = discoverCategories.find((item) => item.id === category)?.label ?? 'For You'
@@ -1194,8 +1201,12 @@ function DiscoverView({
         </div>
       </section>
 
-      <form className="discover-search" onSubmit={onSearch}>
+      <form className="discover-search" onSubmit={(event) => onSearch(event, searchAllGenres)}>
         <label className="search-box"><Search size={20} /><input value={term} onChange={(event) => onTermChange(event.target.value)} placeholder="Browse by title, author, ISBN, genre..." /></label>
+        <label className="discover-search-scope">
+          <input type="checkbox" checked={searchAllGenres} onChange={(event) => setSearchAllGenres(event.target.checked)} />
+          <span><Compass size={16} /> Search all genres</span>
+        </label>
         <button className="primary" disabled={loading} type="submit">{loading ? <LoaderCircle className="spin" size={18} /> : <Search size={18} />} Browse</button>
       </form>
 

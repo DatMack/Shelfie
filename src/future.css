@@ -348,9 +348,14 @@
 .collection-result-count { margin: -7px 2px -3px; color: #76634f; font-size: 11px; }
 .collection-no-results { padding: 48px; border: 1px dashed rgba(223,175,105,.14); border-radius: 16px; color: #8e785f; text-align: center; }
 
-.discover-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+.discover-search { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
 .discover-search .search-box { min-height: 52px; }
 .discover-search .search-box input { width: 100%; min-width: 0; font-size: 16px; }
+.discover-search-scope { position: relative; cursor: pointer; }
+.discover-search-scope input { position: absolute; opacity: 0; pointer-events: none; }
+.discover-search-scope > span { min-height: 52px; display: inline-flex; align-items: center; gap: 7px; padding: 10px 13px; border: 1px solid rgba(239,197,127,.16); border-radius: 12px; background: rgba(255,255,255,.025); color: #9f8a6d; white-space: nowrap; }
+.discover-search-scope input:checked + span { border-color: rgba(151,201,151,.3); background: rgba(104,153,99,.1); color: #c5e4b6; }
+.discover-search-scope input:focus-visible + span { outline: 2px solid #efc57f; outline-offset: 2px; }
 .discover-heading { margin-top: 2px; }
 .discover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 18px; align-items: stretch; }
 .discover-book {

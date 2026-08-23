@@ -35,6 +35,7 @@
   max-height: calc(100% - 44px);
   color: var(--spine-title-color, var(--book-accent));
   font-family: var(--spine-title-font, Georgia, serif);
+  font-size: var(--spine-title-size, 12px);
   line-height: 1.15;
   text-align: center;
 }
