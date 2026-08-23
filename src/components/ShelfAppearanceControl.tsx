@@ -132,8 +132,28 @@ export function ShelfAppearanceControl({
 
           {spineDesign === 'Leather' ? (
             <div className="spine-color-fields">
-              <label><span>Book color</span><input aria-label="Book color" type="color" value={book.color} onChange={(event) => onUpdate(book.id, { color: event.target.value })} /></label>
-              <label><span>Details</span><input aria-label="Spine detail color" type="color" value={book.accent} onChange={(event) => onUpdate(book.id, { accent: event.target.value })} /></label>
+              <label className="spine-color-card">
+                <span className="spine-color-copy">
+                  <strong>Leather color</strong>
+                  <small>The main color of this book's spine</small>
+                </span>
+                <span className="spine-color-picker">
+                  <span className="spine-color-swatch" style={{ backgroundColor: book.color }} aria-hidden="true" />
+                  <code>{book.color.toUpperCase()}</code>
+                  <input aria-label="Leather spine color" type="color" value={book.color} onChange={(event) => onUpdate(book.id, { color: event.target.value })} />
+                </span>
+              </label>
+              <label className="spine-color-card">
+                <span className="spine-color-copy">
+                  <strong>Trim &amp; accents</strong>
+                  <small>Changes the border, lines, and small spine ornament</small>
+                </span>
+                <span className="spine-color-picker">
+                  <span className="spine-color-swatch" style={{ backgroundColor: book.accent }} aria-hidden="true" />
+                  <code>{book.accent.toUpperCase()}</code>
+                  <input aria-label="Spine trim and accent color" type="color" value={book.accent} onChange={(event) => onUpdate(book.id, { accent: event.target.value })} />
+                </span>
+              </label>
             </div>
           ) : (
             <div className="custom-spine-controls">
