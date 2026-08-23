@@ -29,6 +29,7 @@ import './profileDrawer.css'
 import './libraryTools.css'
 import './engagement.css'
 import './shop.css'
+import './loans.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -12,6 +12,7 @@ import {
   Compass,
   DollarSign,
   ExternalLink,
+  Gift,
   Heart,
   Library,
   LoaderCircle,
@@ -35,6 +36,7 @@ import { AchievementsPage } from './components/AchievementsPage'
 import { JournalPage } from './components/JournalPage'
 import { ReadingLogPage } from './components/ReadingLogPage'
 import { ShopPage } from './components/ShopPage'
+import { BookLoanControl, LoanedBooksPage } from './components/LoanedBooksPage'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
 import { nextBookFarewell } from './data/bookFarewells'
 import { loadShelfCountForStyle, loadShelfStyle, saveShelfCountForStyle } from './lib/customizationRuntime'
@@ -57,6 +59,7 @@ import { enrichWithGoogleBooks } from './services/googleBooks'
 import { discoverCategories, searchEverywhere, searchModernDiscoverFeed, type DiscoverCategoryId } from './services/bookSearch'
 import { fetchLiveBookPrices, getBookBuyingOptions, type LiveBookPrice } from './services/bookBuyingOptions'
 import { BookSearchResult, enrichWithOpenLibrary } from './services/openLibrary'
+import { loadBookLoans, type BookLoan } from './lib/loanData'
 
 const readingStatuses: ReadingStatus[] = ['Currently Reading', 'To Be Read', 'Want to Read', 'Read']
 const editableReadingStatuses: ReadingStatus[] = [...readingStatuses, 'DNF']
@@ -81,7 +84,7 @@ const palette = [
   ['#273f50', '#e5c88e'],
 ]
 
-type View = 'shelf' | 'collection' | 'discover' | 'reading-log' | 'journal' | 'achievements' | 'shop' | 'settings'
+type View = 'shelf' | 'collection' | 'loans' | 'discover' | 'reading-log' | 'journal' | 'achievements' | 'shop' | 'settings'
 type AddBookOptions = {
   status: ReadingStatus
   owned: boolean
@@ -254,6 +257,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   const [discoverCategory, setDiscoverCategory] = useState<DiscoverCategoryId>('for-you')
   const [discoverRefreshPage, setDiscoverRefreshPage] = useState(0)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [collectionMenuOpen, setCollectionMenuOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [removingBook, setRemovingBook] = useState<Book | null>(null)
   const [removalMessage, setRemovalMessage] = useState('')
@@ -261,6 +265,9 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   const [notice, setNotice] = useState('')
   const [journalBookId, setJournalBookId] = useState<string | undefined>()
   const [engagementRefreshToken, setEngagementRefreshToken] = useState(0)
+  const [bookLoans, setBookLoans] = useState<BookLoan[]>([])
+  const [loansLoading, setLoansLoading] = useState(true)
+  const [loansError, setLoansError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -314,6 +321,20 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
   useEffect(() => {
     let cancelled = false
+    setLoansLoading(true)
+    setLoansError('')
+    loadBookLoans(userId)
+      .then((loans) => { if (!cancelled) setBookLoans(loans) })
+      .catch((error) => {
+        console.error('Shelfie could not load book loans.', error)
+        if (!cancelled) setLoansError('Loan tracking is taking a break. Your saved loans are still safe.')
+      })
+      .finally(() => { if (!cancelled) setLoansLoading(false) })
+    return () => { cancelled = true }
+  }, [userId])
+
+  useEffect(() => {
+    let cancelled = false
     loadTourCompleted(userId)
       .then((completed) => {
         if (!cancelled && !completed) setTourOpen(true)
@@ -348,6 +369,8 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   }, [largeText, highContrast, glowFocus])
 
   const selectedBook = books.find((book) => book.id === selectedBookId) ?? books[0]
+  const activeLoans = useMemo(() => bookLoans.filter((loan) => !loan.returnedAt), [bookLoans])
+  const selectedBookLoan = selectedBook ? activeLoans.find((loan) => loan.userBookId === selectedBook.id) : undefined
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -432,6 +455,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     try {
       await deleteMyBook(removingBook.id)
       setBooks((current) => current.filter((book) => book.id !== removingBook.id))
+      setBookLoans((current) => current.filter((loan) => loan.userBookId !== removingBook.id))
       setSelectedBookId((current) => current === removingBook.id ? '' : current)
       setRemovingBook(null)
       setNotice(`${removingBook.title} left the shelf. ${removalMessage}`)
@@ -446,6 +470,17 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   function openSettingsSection(sectionId?: string) {
     setView('settings')
     if (sectionId) requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  async function refreshLoans() {
+    setLoansError('')
+    try {
+      setBookLoans(await loadBookLoans(userId))
+    } catch (error) {
+      console.error('Shelfie could not refresh book loans.', error)
+      setLoansError('That loan changed, but the list could not refresh yet. Please reload the page.')
+      throw error
+    }
   }
 
   function selectShelfBook(id: string) {
@@ -631,6 +666,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   const titles: Record<View, { eyebrow: string; title: string }> = {
     shelf: { eyebrow: 'MY LIBRARY', title: 'My Bookshelf' },
     collection: { eyebrow: 'OWNED BOOKS', title: 'My Collection' },
+    loans: { eyebrow: 'BOOKS OUT ON LOAN', title: 'Loaned Books' },
     discover: { eyebrow: 'FIND YOUR NEXT READ', title: 'Discover' },
     'reading-log': { eyebrow: 'READING ACTIVITY', title: 'Reading Log' },
     journal: { eyebrow: 'YOUR PRIVATE NOTES', title: 'Journal' },
@@ -647,7 +683,11 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
         <nav>
           <button className={view === 'shelf' ? 'nav-active' : ''} onClick={() => setView('shelf')}><Library size={18} /> My Bookshelf</button>
-          <button className={view === 'collection' ? 'nav-active' : ''} onClick={() => setView('collection')}><Archive size={18} /> My Collection</button>
+          <button className={view === 'collection' || view === 'loans' ? 'nav-active collection-nav-button' : 'collection-nav-button'} onClick={() => { setView('collection'); setCollectionMenuOpen((current) => !current) }}><Archive size={18} /> My Collection <ChevronDown className={collectionMenuOpen ? 'settings-menu-chevron open' : 'settings-menu-chevron'} size={15} /></button>
+          <div className={collectionMenuOpen ? 'settings-section-menu collection-section-menu open' : 'settings-section-menu collection-section-menu'}>
+            <button className={view === 'collection' ? 'submenu-active' : ''} onClick={() => { setView('collection'); setCollectionMenuOpen(true) }}>Collection overview</button>
+            <button className={view === 'loans' ? 'submenu-active' : ''} onClick={() => { setView('loans'); setCollectionMenuOpen(true) }}>Loaned books {activeLoans.length > 0 && <span className="nav-count">{activeLoans.length}</span>}</button>
+          </div>
           <button className={view === 'discover' ? 'nav-active' : ''} onClick={() => setView('discover')}><Compass size={18} /> Discover</button>
           <button className={view === 'reading-log' ? 'nav-active' : ''} onClick={openReadingLog}><BookOpenCheck size={18} /> Log Reading</button>
           <button className={view === 'journal' ? 'nav-active' : ''} onClick={() => openJournal()}><NotebookPen size={18} /> Journal</button>
@@ -694,11 +734,13 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             detailsDisplay={detailsDisplay}
             onSelect={selectShelfBook}
             onReorder={reorderBook}
-            sidePanel={selectedBook ? <BookDetails book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} onOpenJournal={openJournal} /> : undefined}
+            sidePanel={selectedBook ? <BookDetails book={selectedBook} loan={selectedBookLoan} onLoanChanged={refreshLoans} onUpdate={updateBook} onRemove={requestRemoveBook} onOpenJournal={openJournal} /> : undefined}
           />
         )}
 
-        {view === 'collection' && <CollectionView books={books} onOpen={openBook} onAdd={() => setAddOpen(true)} />}
+        {view === 'collection' && <CollectionView books={books} loans={activeLoans} onOpen={openBook} onAdd={() => setAddOpen(true)} />}
+
+        {view === 'loans' && <LoanedBooksPage books={books} loans={bookLoans} loading={loansLoading} error={loansError} onOpenBook={openBook} onChanged={refreshLoans} />}
 
         {view === 'discover' && (
           <DiscoverView
@@ -752,7 +794,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       )}
 
       {detailsDisplay === 'card' && detailCardOpen && selectedBook && (
-        <BookDetailsModal book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} onOpenJournal={openJournal} onClose={() => setDetailCardOpen(false)} />
+        <BookDetailsModal book={selectedBook} loan={selectedBookLoan} onLoanChanged={refreshLoans} onUpdate={updateBook} onRemove={requestRemoveBook} onOpenJournal={openJournal} onClose={() => setDetailCardOpen(false)} />
       )}
 
       {removingBook && <RemoveBookDialog book={removingBook} message={removalMessage} busy={removalBusy} onCancel={() => setRemovingBook(null)} onConfirm={() => void confirmRemoveBook()} />}
@@ -765,12 +807,16 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
 
 function BookDetails({
   book,
+  loan,
+  onLoanChanged,
   onUpdate,
   onRemove,
   onOpenJournal,
   variant = 'side',
 }: {
   book: Book
+  loan?: BookLoan
+  onLoanChanged: () => void | Promise<void>
   onUpdate: (id: string, patch: Partial<Book>) => void
   onRemove: (book: Book) => void
   onOpenJournal: (bookId?: string) => void
@@ -890,6 +936,8 @@ function BookDetails({
         <button
           type="button"
           className={book.owned ? 'ownership-toggle owned' : 'ownership-toggle'}
+          disabled={Boolean(book.owned && loan)}
+          title={book.owned && loan ? 'Mark this loan returned before removing it from your collection.' : undefined}
           onClick={() => onUpdate(book.id, { owned: !book.owned, ...(book.owned ? {} : { format: book.format ?? 'Hardcover' }) })}
         >
           {book.owned ? <><Check size={17} /> In my collection</> : <><BookPlus size={17} /> Mark as owned</>}
@@ -914,11 +962,15 @@ function BookDetails({
             <button type="button" className={book.signed ? 'signed-toggle active' : 'signed-toggle'} onClick={() => onUpdate(book.id, { signed: !book.signed })}>
               {book.signed ? <><Check size={16} /> Signed copy</> : <><Sparkles size={16} /> Mark as signed</>}
             </button>
+            <button type="button" className={book.gifted ? 'gifted-toggle active' : 'gifted-toggle'} onClick={() => onUpdate(book.id, { gifted: !book.gifted })}>
+              {book.gifted ? <><Check size={16} /> Gifted to me</> : <><Gift size={16} /> Mark as a gift</>}
+            </button>
             {book.signed && <label className="signature-proof-button"><Camera size={16} /> {proofBusy ? 'Uploading…' : book.signedProofPath ? 'Update proof photo' : 'Add proof photo · +25 XP'}<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" disabled={proofBusy} onChange={(event) => void addSignatureProof(event.target.files?.[0])} /></label>}
             {book.signedProofPath && <button className="signature-proof-link" type="button" onClick={() => void viewSignatureProof()}>View private proof <ExternalLink size={13} /></button>}
             {proofMessage && <small className="signature-proof-message">{proofMessage}</small>}
           </div></>
         )}
+        {book.owned && <BookLoanControl book={book} loan={loan} onChanged={onLoanChanged} />}
       </div>
 
       <div className="detail-card journal-card">
@@ -937,12 +989,16 @@ function BookDetails({
 
 function BookDetailsModal({
   book,
+  loan,
+  onLoanChanged,
   onUpdate,
   onRemove,
   onOpenJournal,
   onClose,
 }: {
   book: Book
+  loan?: BookLoan
+  onLoanChanged: () => void | Promise<void>
   onUpdate: (id: string, patch: Partial<Book>) => void
   onRemove: (book: Book) => void
   onOpenJournal: (bookId?: string) => void
@@ -955,25 +1011,23 @@ function BookDetailsModal({
           <div><p className="eyebrow">BOOK DETAILS</p><h2>{book.title}</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close book details"><X /></button>
         </div>
-        <BookDetails book={book} onUpdate={onUpdate} onRemove={onRemove} onOpenJournal={onOpenJournal} variant="card" />
+        <BookDetails book={book} loan={loan} onLoanChanged={onLoanChanged} onUpdate={onUpdate} onRemove={onRemove} onOpenJournal={onOpenJournal} variant="card" />
       </section>
     </div>
   )
 }
 
-function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: string) => void; onAdd: () => void }) {
+function CollectionView({ books, loans, onOpen, onAdd }: { books: Book[]; loans: BookLoan[]; onOpen: (id: string) => void; onAdd: () => void }) {
   const [collectionQuery, setCollectionQuery] = useState('')
   const [collectionFilter, setCollectionFilter] = useState<'all' | 'unread' | 'read' | 'collectible'>('all')
   const [collectionSort, setCollectionSort] = useState<'title' | 'author' | 'value' | 'year'>('title')
   const owned = books.filter((book) => book.owned)
   const estimatedValue = owned.reduce((sum, book) => sum + (book.estimatedValue ?? 0), 0)
-  const amountSpent = owned.reduce((sum, book) => sum + (book.purchasePrice ?? 0), 0)
   const unread = owned.filter((book) => book.status !== 'Read').length
   const readCount = owned.length - unread
   const totalPages = owned.reduce((sum, book) => sum + (book.pages || 0), 0)
   const collectible = owned.filter((book) => book.signed || book.firstEdition || book.specialEdition).length
   const valued = owned.filter((book) => (book.estimatedValue ?? 0) > 0)
-  const priced = owned.filter((book) => book.purchasePrice !== undefined)
   const mostValuable = [...valued].sort((a, b) => (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0))[0]
   const rated = owned.filter((book) => book.rating != null)
   const averageRating = rated.length ? rated.reduce((sum, book) => sum + (book.rating ?? 0), 0) / rated.length : 0
@@ -1010,7 +1064,7 @@ function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: 
         <div>
           <p className="eyebrow">YOUR HOME LIBRARY</p>
           <h2>A collection worth keeping track of.</h2>
-          <p>Ownership, editions, condition and value live here without changing where a book sits in your reading journey.</p>
+          <p>Ownership, editions, condition, loans and value live here without changing where a book sits in your reading journey.</p>
         </div>
         <div className="collection-value"><span>Estimated collection value</span><strong>{valued.length ? money(estimatedValue) : 'Not valued yet'}</strong><small>{valued.length} of {owned.length} books have an estimate</small></div>
       </section>
@@ -1018,7 +1072,7 @@ function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: 
       <section className="metric-grid collection-metrics">
         <Metric icon={<Archive />} label="Books owned" value={String(owned.length)} detail={`${readCount} read · ${unread} unread`} />
         <Metric icon={<BookOpen />} label="Reading progress" value={owned.length ? `${Math.round((readCount / owned.length) * 100)}%` : '—'} detail={`${totalPages.toLocaleString()} pages collected`} />
-        <Metric icon={<DollarSign />} label="Recorded spending" value={priced.length ? money(amountSpent) : 'Not recorded'} detail={`${priced.length} of ${owned.length} books priced`} />
+        <Metric icon={<Users />} label="Loaned out" value={loans.length ? String(loans.length) : 'All home'} detail={loans.length ? `${loans.length} ${loans.length === 1 ? 'book is' : 'books are'} with someone else` : 'No books currently loaned'} />
         <Metric icon={<Sparkles />} label="Special copies" value={String(collectible)} detail={`${owned.filter((book) => book.signed).length} signed · ${owned.filter((book) => book.firstEdition).length} first editions`} />
         <Metric icon={<Star />} label="Average rating" value={rated.length ? averageRating.toFixed(1) : 'Not rated'} detail={`${rated.length} rated books`} />
         <Metric icon={<BarChart3 />} label="Most valuable" value={mostValuable ? money(mostValuable.estimatedValue) : 'Not valued'} detail={mostValuable?.title ?? 'Add estimates as you go'} />

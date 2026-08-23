@@ -1,10 +1,13 @@
-.settings-nav-button { grid-template-columns: auto 1fr auto !important; }
+.settings-nav-button,.collection-nav-button { display: grid !important; grid-template-columns: auto 1fr auto !important; width: 100%; }
 .settings-menu-chevron { transition: transform .24s ease; }
 .settings-menu-chevron.open { transform: rotate(180deg); }
 .settings-section-menu { display: grid; max-height: 0; opacity: 0; overflow: hidden; transform: scaleY(.85); transform-origin: top; transition: max-height .32s ease, opacity .22s ease, transform .28s ease; }
 .settings-section-menu.open { max-height: 260px; opacity: 1; transform: scaleY(1); }
 .sidebar nav .settings-section-menu button { min-height: 30px; padding: 5px 9px 5px 43px; color: #8d785f; font-size: 11px; border-left: 1px solid rgba(218,175,108,.13); border-radius: 0; }
-.sidebar nav .settings-section-menu button:hover { color: #e1c392; background: linear-gradient(90deg,rgba(218,175,108,.06),transparent); }
+.sidebar nav .settings-section-menu button:hover,.sidebar nav .settings-section-menu button.submenu-active { color: #e1c392; background: linear-gradient(90deg,rgba(218,175,108,.06),transparent); }
+.collection-section-menu.open { max-height: 78px; }
+.sidebar nav .collection-section-menu button { display: grid; grid-template-columns: 1fr auto; }
+.nav-count { min-width: 19px; padding: 2px 5px; border-radius: 999px; background: rgba(218,175,108,.12); color: #d8ac6d; font-size: 9px; text-align: center; }
 .settings-section { scroll-margin-top: 22px; }
 
 .remove-book-card { border-color: rgba(196,91,74,.18) !important; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
@@ -56,8 +59,8 @@
   .purchase-option-action small { grid-column: 1 / -1; }
 }
 .signed-copy-controls { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(218,175,108,.11); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.signed-toggle,.signature-proof-button { min-height: 36px; padding: 8px 10px; border: 1px solid rgba(218,175,108,.18); border-radius: 8px; background: rgba(218,175,108,.05); color: #b99b72; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 11px; }
-.signed-toggle.active { border-color: rgba(232,178,91,.42); background: rgba(194,132,55,.14); color: #edc584; }
+.signed-toggle,.gifted-toggle,.signature-proof-button { min-height: 36px; padding: 8px 10px; border: 1px solid rgba(218,175,108,.18); border-radius: 8px; background: rgba(218,175,108,.05); color: #b99b72; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 11px; }
+.signed-toggle.active,.gifted-toggle.active { border-color: rgba(232,178,91,.42); background: rgba(194,132,55,.14); color: #edc584; }
 .signature-proof-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .signature-proof-link { padding: 0; border: 0; background: transparent; color: #cda967; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; cursor: pointer; }
 .signature-proof-message { flex-basis: 100%; color: #bd9e72; }
