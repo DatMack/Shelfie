@@ -336,16 +336,15 @@ export async function importLocalBook(userId: string, book: Book) {
     subjects: book.subjects,
     publisher: book.publisher,
     language: book.language,
+    description: book.description,
+    source: book.source === 'sample' ? 'manual' : book.source,
   }
   const catalog = await findOrCreateCatalogBook(result)
   const client = requireSupabase()
   const { data, error } = await client.from('user_books').upsert({
     user_id: userId,
     book_id: catalog.id,
-    status: statusToDatabase(book.status),
-    current_page: book.currentPage ?? 0,
-    rating: book.rating ?? null,
-    owned: book.owned ?? false,
+    ...bookPatchToDatabase(book),
     format: book.owned ? formatToDatabase(book.format) : null,
     shelf_index: book.shelfIndex ?? 0,
   }, { onConflict: 'user_id,book_id' }).select('*').single()
@@ -362,6 +361,8 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.format !== undefined) output.format = formatToDatabase(patch.format)
   if (patch.purchasePrice !== undefined) output.purchase_price = patch.purchasePrice
   if (patch.estimatedValue !== undefined) output.manual_estimated_value = patch.estimatedValue
+  if (patch.valueLow !== undefined) output.manual_value_low = patch.valueLow
+  if (patch.valueHigh !== undefined) output.manual_value_high = patch.valueHigh
   if (patch.condition !== undefined) output.condition = patch.condition.toLowerCase().replaceAll(' ', '_')
   if (patch.specialEdition !== undefined) output.special_edition = patch.specialEdition
   if (patch.signed !== undefined) output.signed = patch.signed
@@ -372,6 +373,13 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.moodTags !== undefined) output.mood_tags = patch.moodTags
   if (patch.rereadCount !== undefined) output.reread_count = patch.rereadCount
   if (patch.shelfIndex !== undefined) output.shelf_index = patch.shelfIndex
+  if (patch.purchaseDate !== undefined) output.purchase_date = patch.purchaseDate
+  if (patch.storageLocation !== undefined) output.storage_location = patch.storageLocation
+  if (patch.acquiredFrom !== undefined) output.acquired_from = patch.acquiredFrom
+  if (patch.signedProofPath !== undefined) output.signed_proof_path = patch.signedProofPath
+  if (patch.signedProofVerifiedAt !== undefined) output.signed_proof_verified_at = patch.signedProofVerifiedAt
+  if (patch.displayEditionId !== undefined) output.display_edition_id = patch.displayEditionId
+  if (patch.displayCoverUrl !== undefined) output.display_cover_url = patch.displayCoverUrl
   if (patch.displayStyle !== undefined) {
     const styles: Record<string, string> = {
       Auto: 'auto', Spine: 'spine', 'Front Cover': 'front_cover', Cassette: 'cassette',

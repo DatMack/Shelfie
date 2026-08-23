@@ -22,7 +22,7 @@ export type Book = {
   accent: string
   pages: number
   currentPage?: number
-  rating?: number
+  rating?: number | null
   genre: string
   subjects?: string[]
   year: number

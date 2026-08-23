@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'reac
 import {
   Archive,
   BarChart3,
+  BookOpenCheck,
   BookOpen,
   BookPlus,
   Camera,
@@ -14,6 +15,7 @@ import {
   Heart,
   Library,
   LoaderCircle,
+  NotebookPen,
   Search,
   Settings2,
   Sparkles,
@@ -28,6 +30,9 @@ import { ProfileDrawer } from './components/ProfileDrawer'
 import { SettingsPage } from './components/SettingsPage'
 import { ShelfAppearanceControl } from './components/ShelfAppearanceControl'
 import { WelcomeTour } from './components/WelcomeTour'
+import { AchievementsPage } from './components/AchievementsPage'
+import { JournalPage } from './components/JournalPage'
+import { ReadingLogPage } from './components/ReadingLogPage'
 import { Book, BookFormat, ReadingStatus, sampleBooks } from './data/books'
 import { nextBookFarewell } from './data/bookFarewells'
 import { loadShelfCountForStyle, loadShelfStyle, saveShelfCountForStyle } from './lib/customizationRuntime'
@@ -35,6 +40,7 @@ import {
   addCatalogBookToMyShelf,
   bookPatchToDatabase,
   deleteMyBook,
+  importLocalBook,
   loadTourCompleted,
   loadMyLibrary,
   markTourCompleted,
@@ -73,7 +79,7 @@ const palette = [
   ['#273f50', '#e5c88e'],
 ]
 
-type View = 'shelf' | 'collection' | 'discover' | 'settings'
+type View = 'shelf' | 'collection' | 'discover' | 'reading-log' | 'journal' | 'achievements' | 'settings'
 type AddBookOptions = {
   status: ReadingStatus
   owned: boolean
@@ -134,6 +140,47 @@ function loadCachedLibrary(userId: string): Book[] {
     return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
+  }
+}
+
+function libraryRestoreKey(userId: string) {
+  return `shelfie-library-restore:${userId}`
+}
+
+function libraryRecoveryDoneKey(userId: string) {
+  return `shelfie-library-recovery-v1:${userId}`
+}
+
+function needsLibraryRestore(userId: string) {
+  try {
+    return localStorage.getItem(libraryRestoreKey(userId)) === 'needed'
+  } catch {
+    return false
+  }
+}
+
+function markLibraryRestore(userId: string, needed: boolean) {
+  try {
+    if (needed) localStorage.setItem(libraryRestoreKey(userId), 'needed')
+    else localStorage.removeItem(libraryRestoreKey(userId))
+  } catch {
+    // The in-memory shelf remains usable if browser storage is unavailable.
+  }
+}
+
+function libraryRecoveryDone(userId: string) {
+  try {
+    return localStorage.getItem(libraryRecoveryDoneKey(userId)) === 'done'
+  } catch {
+    return false
+  }
+}
+
+function markLibraryRecoveryDone(userId: string) {
+  try {
+    localStorage.setItem(libraryRecoveryDoneKey(userId), 'done')
+  } catch {
+    // Recovery still succeeds even when the browser cannot persist this marker.
   }
 }
 
@@ -204,12 +251,42 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   const [removalMessage, setRemovalMessage] = useState('')
   const [removalBusy, setRemovalBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [journalBookId, setJournalBookId] = useState<string | undefined>()
+  const [engagementRefreshToken, setEngagementRefreshToken] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     async function connectLibrary() {
       const remoteRows = await loadMyLibrary(userId)
       if (cancelled) return
+
+      const cached = loadCachedLibrary(userId)
+      const restoreNeeded = needsLibraryRestore(userId)
+      const firstRecoveryCheck = !libraryRecoveryDone(userId)
+      if (cached.length > 0 && (restoreNeeded || (firstRecoveryCheck && remoteRows.length === 0))) {
+        markLibraryRestore(userId, true)
+        const restoreResults = await Promise.allSettled(
+          cached.map((book) => importLocalBook(userId, book)),
+        )
+        const failedCount = restoreResults.filter((result) => result.status === 'rejected').length
+
+        if (failedCount > 0) {
+          setBooks(cached)
+          setNotice(`Shelfie recovered your local shelf, but ${failedCount} ${failedCount === 1 ? 'book still needs' : 'books still need'} to sync. Refresh to retry safely.`)
+          return
+        }
+
+        const restoredRows = await loadMyLibrary(userId)
+        if (cancelled) return
+        markLibraryRestore(userId, false)
+        markLibraryRecoveryDone(userId)
+        setBooks(mapLibraryRows(restoredRows))
+        setNotice(`${restoredRows.length} ${restoredRows.length === 1 ? 'book was' : 'books were'} safely restored to your account.`)
+        setLibraryReady(true)
+        return
+      }
+
+      markLibraryRecoveryDone(userId)
       setBooks(mapLibraryRows(remoteRows))
       if (!cancelled) setLibraryReady(true)
     }
@@ -303,10 +380,30 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   }, [view, recommendationGenre, discoverCategory, discoverRefreshPage, discoverTerm])
 
   function updateBook(id: string, patch: Partial<Book>) {
+    const previous = books.find((book) => book.id === id)
     setBooks((current) => current.map((book) => (book.id === id ? { ...book, ...patch } : book)))
     const databasePatch = bookPatchToDatabase(patch)
     if (Object.keys(databasePatch).length > 0) {
-      void updateMyBook(id, databasePatch).catch((error) => console.error('Could not save the book update.', error))
+      void updateMyBook(id, databasePatch)
+        .then(() => {
+          if (patch.rating !== undefined || patch.status !== undefined || patch.owned !== undefined || patch.favorite !== undefined || patch.spineDesign !== undefined || patch.customSpineUrl !== undefined) {
+            setEngagementRefreshToken((current) => current + 1)
+          }
+        })
+        .catch((error) => {
+          console.error('Could not save the book update.', error)
+          if (previous) {
+            setBooks((current) => current.map((book) => {
+              if (book.id !== id) return book
+              const rollback: Partial<Book> = {}
+              for (const key of Object.keys(patch) as Array<keyof Book>) {
+                if (book[key] === patch[key]) (rollback as Record<string, unknown>)[key] = previous[key]
+              }
+              return { ...book, ...rollback }
+            }))
+          }
+          setNotice('That change did not save, so Shelfie restored the previous value. Please try again.')
+        })
     }
   }
 
@@ -459,6 +556,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     setBooks((current) => [...current, newBook])
     setSelectedBookId(newBook.id)
     setNotice(`${newBook.title} was added to ${options.owned ? 'your collection' : 'your wishlist'}.`)
+    setEngagementRefreshToken((current) => current + 1)
   }
 
   async function searchDiscover(event: FormEvent) {
@@ -485,10 +583,38 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     if (detailsDisplay === 'card') setDetailCardOpen(true)
   }
 
+  function openJournal(bookId?: string) {
+    setJournalBookId(bookId)
+    setView('journal')
+    setDetailCardOpen(false)
+    setProfileOpen(false)
+  }
+
+  function openReadingLog() {
+    setView('reading-log')
+    setProfileOpen(false)
+  }
+
+  function openAchievements() {
+    setView('achievements')
+    setProfileOpen(false)
+  }
+
+  function refreshEngagement() {
+    setEngagementRefreshToken((current) => current + 1)
+  }
+
+  function updateLocalBookProgress(id: string, page: number) {
+    setBooks((current) => current.map((book) => book.id === id ? { ...book, currentPage: page } : book))
+  }
+
   const titles: Record<View, { eyebrow: string; title: string }> = {
     shelf: { eyebrow: 'MY LIBRARY', title: 'My Bookshelf' },
     collection: { eyebrow: 'OWNED BOOKS', title: 'My Collection' },
     discover: { eyebrow: 'FIND YOUR NEXT READ', title: 'Discover' },
+    'reading-log': { eyebrow: 'READING ACTIVITY', title: 'Reading Log' },
+    journal: { eyebrow: 'YOUR PRIVATE NOTES', title: 'Journal' },
+    achievements: { eyebrow: 'MILESTONES', title: 'Achievements' },
     settings: { eyebrow: 'SHELFIE', title: 'Settings' },
   }
 
@@ -502,8 +628,10 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
           <button className={view === 'shelf' ? 'nav-active' : ''} onClick={() => setView('shelf')}><Library size={18} /> My Bookshelf</button>
           <button className={view === 'collection' ? 'nav-active' : ''} onClick={() => setView('collection')}><Archive size={18} /> My Collection</button>
           <button className={view === 'discover' ? 'nav-active' : ''} onClick={() => setView('discover')}><Compass size={18} /> Discover</button>
+          <button className={view === 'reading-log' ? 'nav-active' : ''} onClick={openReadingLog}><BookOpenCheck size={18} /> Log Reading</button>
+          <button className={view === 'journal' ? 'nav-active' : ''} onClick={() => openJournal()}><NotebookPen size={18} /> Journal</button>
           <button><Users size={18} /> Friends <span className="nav-soon">soon</span></button>
-          <button><Trophy size={18} /> Trophy Case <span className="nav-soon">soon</span></button>
+          <button className={view === 'achievements' ? 'nav-active' : ''} onClick={openAchievements}><Trophy size={18} /> Achievements</button>
           <button className={view === 'settings' ? 'nav-active settings-nav-button' : 'settings-nav-button'} onClick={() => { openSettingsSection(); setSettingsMenuOpen((current) => !current) }}><Settings2 size={18} /> Settings <ChevronDown className={settingsMenuOpen ? 'settings-menu-chevron open' : 'settings-menu-chevron'} size={15} /></button>
           <div className={settingsMenuOpen ? 'settings-section-menu open' : 'settings-section-menu'}>
             <button onClick={() => openSettingsSection('settings-layout')}>Bookshelf layout</button>
@@ -514,7 +642,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             <button onClick={() => openSettingsSection('settings-help')}>Help</button>
           </div>
         </nav>
-        <ProfileDrawer open={profileOpen} userId={userId} books={books} fallbackName={fallbackName} userEmail={userEmail} fallbackAvatar={fallbackAvatar} onToggle={() => setProfileOpen((current) => !current)} onSignOut={onSignOut} />
+        <ProfileDrawer open={profileOpen} userId={userId} books={books} fallbackName={fallbackName} userEmail={userEmail} fallbackAvatar={fallbackAvatar} onToggle={() => setProfileOpen((current) => !current)} onSignOut={onSignOut} onOpenReadingLog={openReadingLog} onOpenAchievements={openAchievements} engagementRefreshToken={engagementRefreshToken} />
       </aside>
 
       <section className="content">
@@ -530,7 +658,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your shelf..." />
               </label>
             )}
-            {view !== 'settings' && <button className="primary" onClick={() => setAddOpen(true)}><BookPlus size={18} /> Add Book</button>}
+            {(view === 'shelf' || view === 'collection' || view === 'discover') && <button className="primary" onClick={() => setAddOpen(true)}><BookPlus size={18} /> Add Book</button>}
           </div>
         </header>
 
@@ -544,7 +672,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             detailsDisplay={detailsDisplay}
             onSelect={selectShelfBook}
             onReorder={reorderBook}
-            sidePanel={selectedBook ? <BookDetails book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} /> : undefined}
+            sidePanel={selectedBook ? <BookDetails book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} onOpenJournal={openJournal} /> : undefined}
           />
         )}
 
@@ -567,6 +695,12 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
             onPurchased={(result) => addBook(result, { status: 'Want to Read', owned: true, format: 'Hardcover' })}
           />
         )}
+
+        {view === 'reading-log' && <ReadingLogPage books={books} onProgressSaved={updateLocalBookProgress} onActivity={refreshEngagement} />}
+
+        {view === 'journal' && <JournalPage books={books} initialBookId={journalBookId} onActivity={refreshEngagement} />}
+
+        {view === 'achievements' && <AchievementsPage refreshToken={engagementRefreshToken} />}
 
         {view === 'settings' && (
           <SettingsPage
@@ -594,7 +728,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       )}
 
       {detailsDisplay === 'card' && detailCardOpen && selectedBook && (
-        <BookDetailsModal book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} onClose={() => setDetailCardOpen(false)} />
+        <BookDetailsModal book={selectedBook} onUpdate={updateBook} onRemove={requestRemoveBook} onOpenJournal={openJournal} onClose={() => setDetailCardOpen(false)} />
       )}
 
       {removingBook && <RemoveBookDialog book={removingBook} message={removalMessage} busy={removalBusy} onCancel={() => setRemovingBook(null)} onConfirm={() => void confirmRemoveBook()} />}
@@ -609,11 +743,13 @@ function BookDetails({
   book,
   onUpdate,
   onRemove,
+  onOpenJournal,
   variant = 'side',
 }: {
   book: Book
   onUpdate: (id: string, patch: Partial<Book>) => void
   onRemove: (book: Book) => void
+  onOpenJournal: (bookId?: string) => void
   variant?: BookDetailsDisplay
 }) {
   const [proofBusy, setProofBusy] = useState(false)
@@ -709,8 +845,14 @@ function BookDetails({
       <div className="detail-grid">
         <div className="detail-card">
           <div className="card-heading"><span>My rating</span><Star size={18} /></div>
-          <strong className="rating">{book.rating ?? '—'}</strong>
-          <p>{book.rating ? 'A keeper.' : 'Not rated yet'}</p>
+          <div className="rating-picker" role="radiogroup" aria-label={`Rate ${book.title}`}>
+            {[1, 2, 3, 4, 5].map((rating) => (
+              <button type="button" role="radio" aria-checked={book.rating === rating} aria-label={`${rating} star${rating === 1 ? '' : 's'}`} onClick={() => onUpdate(book.id, { rating })} key={rating}>
+                <Star size={21} fill={(book.rating ?? 0) >= rating ? 'currentColor' : 'none'} />
+              </button>
+            ))}
+          </div>
+          <p>{book.rating ? <>{book.rating} out of 5 · saved automatically <button className="rating-clear" type="button" onClick={() => onUpdate(book.id, { rating: null })}>Clear</button></> : 'Not rated yet'}</p>
         </div>
         <div className="detail-card">
           <div className="card-heading"><span>Book length</span><Sparkles size={18} /></div>
@@ -758,7 +900,7 @@ function BookDetails({
       <div className="detail-card journal-card">
         <div className="card-heading"><span>Journal</span><ChevronRight size={18} /></div>
         <p>{book.note ?? 'Add thoughts, favorite quotes, characters, predictions, moods, or a full review whenever you want.'}</p>
-        <button className="secondary">Open book journal</button>
+        <button className="secondary" type="button" onClick={() => onOpenJournal(book.id)}>Open book journal</button>
       </div>
 
       <div className="detail-card remove-book-card">
@@ -773,11 +915,13 @@ function BookDetailsModal({
   book,
   onUpdate,
   onRemove,
+  onOpenJournal,
   onClose,
 }: {
   book: Book
   onUpdate: (id: string, patch: Partial<Book>) => void
   onRemove: (book: Book) => void
+  onOpenJournal: (bookId?: string) => void
   onClose: () => void
 }) {
   return (
@@ -787,7 +931,7 @@ function BookDetailsModal({
           <div><p className="eyebrow">BOOK DETAILS</p><h2>{book.title}</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close book details"><X /></button>
         </div>
-        <BookDetails book={book} onUpdate={onUpdate} onRemove={onRemove} variant="card" />
+        <BookDetails book={book} onUpdate={onUpdate} onRemove={onRemove} onOpenJournal={onOpenJournal} variant="card" />
       </section>
     </div>
   )
@@ -807,7 +951,7 @@ function CollectionView({ books, onOpen, onAdd }: { books: Book[]; onOpen: (id: 
   const valued = owned.filter((book) => (book.estimatedValue ?? 0) > 0)
   const priced = owned.filter((book) => book.purchasePrice !== undefined)
   const mostValuable = [...valued].sort((a, b) => (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0))[0]
-  const rated = owned.filter((book) => book.rating !== undefined)
+  const rated = owned.filter((book) => book.rating != null)
   const averageRating = rated.length ? rated.reduce((sum, book) => sum + (book.rating ?? 0), 0) / rated.length : 0
 
   function countsFor(values: string[]) {
@@ -942,6 +1086,7 @@ function DiscoverView({
   const [detailLoading, setDetailLoading] = useState(false)
   const [resultLimit, setResultLimit] = useState(12)
   const [selectorOpen, setSelectorOpen] = useState(false)
+  const selectorRef = useRef<HTMLDivElement>(null)
   const wheelLock = useRef(0)
   const categoryLabel = discoverCategories.find((item) => item.id === category)?.label ?? 'For You'
   const categoryIndex = Math.max(0, discoverCategories.findIndex((item) => item.id === category))
@@ -949,6 +1094,22 @@ function DiscoverView({
     offset,
     item: discoverCategories[(categoryIndex + offset + discoverCategories.length) % discoverCategories.length],
   }))
+
+  useEffect(() => {
+    if (!selectorOpen) return
+    function closeOutside(event: PointerEvent) {
+      if (selectorRef.current && !selectorRef.current.contains(event.target as Node)) setSelectorOpen(false)
+    }
+    function closeWithKeyboard(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSelectorOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOutside)
+    document.addEventListener('keydown', closeWithKeyboard)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('keydown', closeWithKeyboard)
+    }
+  }, [selectorOpen])
 
   function rotateCategory(direction: -1 | 1) {
     const nextIndex = (categoryIndex + direction + discoverCategories.length) % discoverCategories.length
@@ -981,7 +1142,7 @@ function DiscoverView({
           <h2>Discover what readers are reaching for now.</h2>
           <p>Browse recent releases and contemporary favorites tuned toward your shelf. Search still reaches the wider catalogs when you need something older or wonderfully obscure.</p>
         </div>
-        <div className={`taste-card genre-dial-card ${selectorOpen ? 'open' : ''}`}>
+        <div ref={selectorRef} className={`taste-card genre-dial-card ${selectorOpen ? 'open' : ''}`}>
           <div className="genre-dial-heading"><Heart size={22} /><span>Discovery shelf</span></div>
           <button className={`genre-dial-toggle ${selectorOpen ? 'open' : ''}`} type="button" aria-expanded={selectorOpen} aria-controls="genre-turnstile" onClick={() => setSelectorOpen((current) => !current)}>
             {selectorOpen ? <span>Choose a genre</span> : <strong>{categoryLabel}</strong>}

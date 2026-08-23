@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Camera, ChevronLeft, LogOut, UserRound, X } from 'lucide-react'
+import { BookOpenCheck, Camera, ChevronLeft, LogOut, Trophy, UserRound, X } from 'lucide-react'
 import type { Book } from '../data/books'
 import { loadMyProfile, type ShelfieProfile, uploadProfilePicture } from '../lib/shelfieData'
 import { DailyQuestBoard } from './DailyQuestBoard'
@@ -14,6 +14,9 @@ export function ProfileDrawer({
   fallbackAvatar,
   onToggle,
   onSignOut,
+  onOpenReadingLog,
+  onOpenAchievements,
+  engagementRefreshToken = 0,
 }: {
   open: boolean
   userId: string
@@ -23,6 +26,9 @@ export function ProfileDrawer({
   fallbackAvatar?: string
   onToggle: () => void
   onSignOut?: () => void | Promise<void>
+  onOpenReadingLog?: () => void
+  onOpenAchievements?: () => void
+  engagementRefreshToken?: number
 }) {
   const [profile, setProfile] = useState<ShelfieProfile | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -82,8 +88,13 @@ export function ProfileDrawer({
           <div><strong>{pages.toLocaleString()}</strong><span>Pages</span></div>
         </div>
 
-        <ReaderProgressCard userId={userId} />
-        <DailyQuestBoard />
+        <ReaderProgressCard userId={userId} refreshToken={engagementRefreshToken} />
+        <DailyQuestBoard refreshToken={engagementRefreshToken} onOpenReadingLog={onOpenReadingLog} />
+
+        <div className="profile-quick-links">
+          {onOpenReadingLog && <button type="button" onClick={onOpenReadingLog}><BookOpenCheck size={16} /> Reading log</button>}
+          {onOpenAchievements && <button type="button" onClick={onOpenAchievements}><Trophy size={16} /> Achievements</button>}
+        </div>
 
         {onSignOut && <button className="profile-signout" type="button" onClick={() => void onSignOut()}><LogOut size={17} /> Sign out</button>}
       </section>

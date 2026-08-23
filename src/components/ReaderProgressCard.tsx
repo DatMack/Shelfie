@@ -3,14 +3,14 @@ import { useEffect, useState } from 'react'
 import { getProgressForXp } from '../data/progression'
 import { loadReaderProgress, type ReaderProgress } from '../lib/shelfieData'
 
-export function ReaderProgressCard({ userId }: { userId: string }) {
+export function ReaderProgressCard({ userId, refreshToken = 0 }: { userId: string; refreshToken?: number }) {
   const [account, setAccount] = useState<ReaderProgress>({ totalXp: 0, level: 1, currentStreak: 0, longestStreak: 0 })
 
   useEffect(() => {
     let active = true
     loadReaderProgress(userId).then((value) => active && setAccount(value)).catch(() => undefined)
     return () => { active = false }
-  }, [userId])
+  }, [userId, refreshToken])
 
   const progress = getProgressForXp(account.totalXp)
 

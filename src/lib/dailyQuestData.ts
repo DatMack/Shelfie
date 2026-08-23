@@ -8,7 +8,7 @@ export type StoredDailyQuest = {
   position: number
   title: string
   description: string
-  event_type: 'minutes_read' | 'pages_read' | 'reading_session' | 'progress_log' | 'journal_entry'
+  event_type: 'minutes_read' | 'pages_read' | 'reading_session' | 'progress_log' | 'journal_entry' | 'rate_book' | 'add_book' | 'wishlist_book' | 'own_book' | 'customize_book' | 'favorite_book' | 'start_book' | 'finish_book' | 'manual_book' | 'update_book_details' | 'signed_book'
   target_amount: number
   unit: string
   reward_xp: number
@@ -39,6 +39,7 @@ export async function loadMyDailyQuestSet(date = new Date()) {
   if (!supabase) throw new Error('Shelfie is not connected to Supabase.')
 
   const questDate = getLocalActivityDate(date)
+  const quests = await ensureMyDailyQuests(date)
   const { data: set, error: setError } = await supabase
     .from('daily_quest_sets')
     .select('*')
@@ -47,6 +48,5 @@ export async function loadMyDailyQuestSet(date = new Date()) {
 
   if (setError) throw setError
 
-  const quests = await ensureMyDailyQuests(date)
   return { set, quests }
 }

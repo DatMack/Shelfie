@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 
 const maxLevelTesterFingerprint = '1d61d7a0'
 export const DEMO_READER_XP = 980
-export const MAX_LEVEL_TEST_XP = 100000
+export const MAX_LEVEL_TEST_XP = 34155
 
 function fingerprint(value: string) {
   let hash = 0x811c9dc5

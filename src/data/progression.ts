@@ -12,26 +12,57 @@ export type LevelDefinition = {
   }
 }
 
-export const levelDefinitions: LevelDefinition[] = [
-  { level: 1, title: 'Page Turner', xpRequired: 0 },
-  { level: 2, title: 'Bookmark Collector', xpRequired: 100, reward: { name: 'Golden Bookmark', description: 'A small gold bookmark accent for your profile.', type: 'decoration', rarity: 'Common' } },
-  { level: 3, title: 'Chapter Chaser', xpRequired: 220, reward: { name: 'Warm Glow', description: 'Unlock a warmer book-focus glow.', type: 'effect', rarity: 'Common' } },
-  { level: 4, title: 'Story Seeker', xpRequired: 360 },
-  { level: 5, title: 'Bookworm', xpRequired: 520, reward: { name: 'Walnut Shelf', description: 'A richer walnut bookshelf finish.', type: 'shelf_theme', rarity: 'Rare' } },
-  { level: 6, title: 'Night Reader', xpRequired: 700, reward: { name: 'Streak Save', description: 'Protect one reading streak from a missed day.', type: 'streak_save', rarity: 'Rare' } },
-  { level: 7, title: 'Shelf Builder', xpRequired: 900, reward: { name: 'Cozy Candle', description: 'Place a glowing candle on your virtual shelf.', type: 'decoration', rarity: 'Rare' } },
-  { level: 8, title: 'Plot Wanderer', xpRequired: 1125, reward: { name: 'Oak Library', description: 'Unlock a bright oak shelf theme.', type: 'shelf_theme', rarity: 'Rare' } },
-  { level: 9, title: 'Lore Keeper', xpRequired: 1375 },
-  { level: 10, title: 'Bibliophile', xpRequired: 1650, reward: { name: 'Brass Bookends', description: 'Decorative brass bookends for your shelf.', type: 'decoration', rarity: 'Epic' } },
-  { level: 12, title: 'Page Voyager', xpRequired: 2300, reward: { name: 'Falling Leaves', description: 'A subtle seasonal reading effect.', type: 'effect', rarity: 'Rare' } },
-  { level: 15, title: 'Story Collector', xpRequired: 3500, reward: { name: 'Enchanted Sparkles', description: 'Give favorite books a magical particle effect.', type: 'effect', rarity: 'Epic' } },
-  { level: 20, title: 'Library Curator', xpRequired: 6000, reward: { name: 'Grand Library', description: 'Unlock an ornate grand-library shelf theme.', type: 'shelf_theme', rarity: 'Epic' } },
-  { level: 25, title: 'Keeper of Stories', xpRequired: 9000, reward: { name: 'Gilded Reader Frame', description: 'A gold profile frame that shows off your level.', type: 'profile_frame', rarity: 'Epic' } },
-  { level: 35, title: 'Tome Warden', xpRequired: 16000, reward: { name: 'Dragon Bookend', description: 'A tiny dragon guards the edge of your shelf.', type: 'decoration', rarity: 'Legendary' } },
-  { level: 50, title: 'Master Librarian', xpRequired: 30000, reward: { name: 'Master Library', description: 'A legendary library theme with animated details.', type: 'shelf_theme', rarity: 'Legendary' } },
-  { level: 75, title: 'Mythic Reader', xpRequired: 60000, reward: { name: 'Mythic Aura', description: 'A rare profile and bookshelf aura.', type: 'effect', rarity: 'Legendary' } },
-  { level: 100, title: 'Eternal Reader', xpRequired: 100000, reward: { name: 'Eternal Library', description: 'The highest-tier Shelfie library theme and title.', type: 'shelf_theme', rarity: 'Legendary' } },
-]
+const rewards = new Map<number, NonNullable<LevelDefinition['reward']>>([
+  [2, { name: 'Golden Bookmark', description: 'A small gold bookmark accent for your profile.', type: 'decoration', rarity: 'Common' }],
+  [3, { name: 'Warm Glow', description: 'Unlock a warmer book-focus glow.', type: 'effect', rarity: 'Common' }],
+  [5, { name: 'Walnut Shelf', description: 'A richer walnut bookshelf finish.', type: 'shelf_theme', rarity: 'Rare' }],
+  [6, { name: 'Streak Save', description: 'Protect one reading streak from a missed day.', type: 'streak_save', rarity: 'Rare' }],
+  [7, { name: 'Cozy Candle', description: 'Place a glowing candle on your virtual shelf.', type: 'decoration', rarity: 'Rare' }],
+  [8, { name: 'Oak Library', description: 'Unlock a bright oak shelf theme.', type: 'shelf_theme', rarity: 'Rare' }],
+  [10, { name: 'Brass Bookends', description: 'Decorative brass bookends for your shelf.', type: 'decoration', rarity: 'Epic' }],
+  [12, { name: 'Falling Leaves', description: 'A subtle seasonal reading effect.', type: 'effect', rarity: 'Rare' }],
+  [15, { name: 'Enchanted Sparkles', description: 'Give favorite books a magical particle effect.', type: 'effect', rarity: 'Epic' }],
+  [20, { name: 'Grand Library', description: 'Unlock an ornate grand-library shelf theme.', type: 'shelf_theme', rarity: 'Epic' }],
+  [25, { name: 'Gilded Reader Frame', description: 'A gold profile frame that shows off your level.', type: 'profile_frame', rarity: 'Epic' }],
+  [35, { name: 'Dragon Bookend', description: 'A tiny dragon guards the edge of your shelf.', type: 'decoration', rarity: 'Legendary' }],
+  [50, { name: 'Master Library', description: 'A legendary library theme with animated details.', type: 'shelf_theme', rarity: 'Legendary' }],
+  [75, { name: 'Mythic Aura', description: 'A rare profile and bookshelf aura.', type: 'effect', rarity: 'Legendary' }],
+  [100, { name: 'Eternal Library', description: 'The highest-tier Shelfie library theme and title.', type: 'shelf_theme', rarity: 'Legendary' }],
+])
+
+function titleForLevel(level: number) {
+  if (level >= 100) return 'Eternal Reader'
+  if (level >= 90) return 'Legend of the Stacks'
+  if (level >= 75) return 'Mythic Reader'
+  if (level >= 60) return 'Grand Archivist'
+  if (level >= 50) return 'Master Librarian'
+  if (level >= 40) return 'Keeper of Legends'
+  if (level >= 35) return 'Tome Warden'
+  if (level >= 25) return 'Keeper of Stories'
+  if (level >= 20) return 'Library Curator'
+  if (level >= 15) return 'Story Collector'
+  if (level >= 12) return 'Page Voyager'
+  if (level >= 10) return 'Bibliophile'
+  if (level >= 9) return 'Lore Keeper'
+  if (level >= 8) return 'Plot Wanderer'
+  if (level >= 7) return 'Shelf Builder'
+  if (level >= 6) return 'Night Reader'
+  if (level >= 5) return 'Bookworm'
+  if (level >= 4) return 'Story Seeker'
+  if (level >= 3) return 'Chapter Chaser'
+  if (level >= 2) return 'Bookmark Collector'
+  return 'Page Turner'
+}
+
+// Level N starts at the sum of 100 + 5 * (level - 1) for every prior level.
+// The complete 1–100 journey is 34,155 XP: steady enough to feel rewarding without
+// letting a week of enthusiastic clicking consume the entire progression system.
+export const levelDefinitions: LevelDefinition[] = Array.from({ length: 100 }, (_, index) => {
+  const level = index + 1
+  const priorSteps = level - 1
+  const xpRequired = priorSteps * 100 + (5 * priorSteps * (priorSteps - 1)) / 2
+  return { level, title: titleForLevel(level), xpRequired, reward: rewards.get(level) }
+})
 
 export function getLevelForXp(xp: number) {
   return [...levelDefinitions].reverse().find((definition) => xp >= definition.xpRequired) ?? levelDefinitions[0]
