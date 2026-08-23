@@ -187,27 +187,8 @@ export function ShelfAppearanceControl({
 
             {(book.showSpineTitle ?? true) && (
               <div className="spine-title-customizer">
-                <div className="spine-title-fields">
-                  <label>
-                    <span>Title font</span>
-                    <select
-                      value={book.spineTitleFont ?? 'Classic'}
-                      onChange={(event) => onUpdate(book.id, { spineTitleFont: event.target.value as SpineTitleFont })}
-                    >
-                      {spineTitleFonts.map((font) => <option key={font} value={font}>{font}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Title color</span>
-                    <input
-                      aria-label="Spine title color"
-                      type="color"
-                      value={book.spineTitleColor ?? book.accent}
-                      onChange={(event) => onUpdate(book.id, { spineTitleColor: event.target.value })}
-                    />
-                  </label>
-                </div>
-                <div className="spine-title-preview-row">
+                <div className="spine-title-preview-column">
+                  <span className="spine-preview-label">Live preview</span>
                   <div
                     className={book.customSpineUrl && spineDesign === 'Custom Image' ? 'spine-title-preview custom-image' : 'spine-title-preview'}
                     style={{ '--preview-color': book.color, '--preview-accent': book.accent } as React.CSSProperties}
@@ -216,13 +197,38 @@ export function ShelfAppearanceControl({
                     {book.customSpineUrl && spineDesign === 'Custom Image' && <img src={book.customSpineUrl} alt="" />}
                     <span style={{ color: book.spineTitleColor ?? book.accent, fontFamily: spineTitleFontStack(book.spineTitleFont), fontSize: `${spineTitleSize}px` }}>{book.title}</span>
                   </div>
+                </div>
+                <div className="spine-title-controls">
+                  <div className="spine-title-fields">
+                    <label>
+                      <span>Title font</span>
+                      <select
+                        value={book.spineTitleFont ?? 'Classic'}
+                        onChange={(event) => onUpdate(book.id, { spineTitleFont: event.target.value as SpineTitleFont })}
+                      >
+                        {spineTitleFonts.map((font) => <option key={font} value={font}>{font}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Title color</span>
+                      <input
+                        aria-label="Spine title color"
+                        type="color"
+                        value={book.spineTitleColor ?? book.accent}
+                        onChange={(event) => onUpdate(book.id, { spineTitleColor: event.target.value })}
+                      />
+                    </label>
+                  </div>
                   <div className="spine-title-size-control">
-                    <div><span>Font size</span><strong>{spineTitleSize}px</strong></div>
-                    <div className="spine-title-size-buttons">
-                      <button type="button" aria-label="Decrease spine title size by 5" disabled={spineTitleSize <= 7} onClick={() => changeSpineTitleSize(-1)}><ArrowDown size={17} /></button>
-                      <button type="button" aria-label="Increase spine title size by 5" disabled={spineTitleSize >= 32} onClick={() => changeSpineTitleSize(1)}><ArrowUp size={17} /></button>
+                    <div className="spine-title-size-heading">
+                      <span>Font size</span>
+                      <small>Changes this book by 5px</small>
                     </div>
-                    <small>Each arrow changes this book by 5px.</small>
+                    <div className="spine-title-stepper">
+                      <button type="button" aria-label="Decrease spine title size by 5" disabled={spineTitleSize <= 7} onClick={() => changeSpineTitleSize(-1)}><ArrowDown size={17} /><span>Smaller</span></button>
+                      <output aria-live="polite">{spineTitleSize}<small>px</small></output>
+                      <button type="button" aria-label="Increase spine title size by 5" disabled={spineTitleSize >= 32} onClick={() => changeSpineTitleSize(1)}><ArrowUp size={17} /><span>Larger</span></button>
+                    </div>
                   </div>
                 </div>
               </div>
