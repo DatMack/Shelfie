@@ -47,8 +47,12 @@
 .shop-catalog-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 3px 3px 0; }
 .shop-catalog-heading h3 { margin: 2px 0 0; color: #efd5ae; font: 28px Georgia, serif; }
 .shop-catalog-heading > span { display: inline-flex; align-items: center; gap: 6px; color: #8b755a; font-size: 12px; }
+.shop-heading-line { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.shop-heading-line > span,
+.shop-coming-soon { display: inline-flex; align-items: center; width: max-content; padding: 4px 8px; border: 1px solid rgba(223,175,105,.2); border-radius: 999px; background: rgba(213,158,73,.08); color: #d6a962; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .shop-empty { min-height: 285px; display: grid; place-items: center; align-content: center; gap: 8px; padding: 28px; border: 1px dashed rgba(223,175,105,.16); border-radius: 21px; background: rgba(255,255,255,.015); color: #8f795f; text-align: center; }
 .shop-empty-icon { width: 66px; height: 66px; display: grid; place-items: center; border-radius: 50%; background: rgba(213,158,73,.08); color: #d09a50; }
+.shop-coming-soon { margin-top: 5px; }
 .shop-empty h3 { margin: 7px 0 0; color: #e7c89e; font: 24px Georgia, serif; }
 .shop-empty p { max-width: 560px; margin: 0; line-height: 1.55; }
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 14px; }

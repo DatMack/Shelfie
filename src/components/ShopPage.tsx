@@ -58,7 +58,10 @@ export function ShopPage({ userId, refreshToken = 0 }: { userId: string; refresh
       {message && <div className="shop-message" role="status"><Sparkles size={17} /> {message}</div>}
 
       <section className="shop-catalog-heading">
-        <div><p className="eyebrow">CUSTOMIZATION</p><h3>Workshop collection</h3></div>
+        <div>
+          <p className="eyebrow">CUSTOMIZATION</p>
+          <div className="shop-heading-line"><h3>Workshop marketplace</h3><span>Coming soon</span></div>
+        </div>
         <span><ShoppingBag size={16} /> {shop.purchasedIds.length} owned</span>
       </section>
 
@@ -67,8 +70,9 @@ export function ShopPage({ userId, refreshToken = 0 }: { userId: string; refresh
       ) : shop.items.length === 0 ? (
         <div className="shop-empty">
           <span className="shop-empty-icon"><PackageOpen size={34} /></span>
-          <h3>The workshop is ready.</h3>
-          <p>New shelf styles will arrive one carefully crafted design at a time. Your coins will wait safely for the right one.</p>
+          <span className="shop-coming-soon">Coming soon</span>
+          <h3>A marketplace made by readers.</h3>
+          <p>Eventually, readers will be able to create and sell shelf themes, book-spine styles, badges, and other cosmetics for Shelf Coins. For now, keep reading—your future coins and customizations will wait safely here.</p>
         </div>
       ) : (
         <div className="shop-grid">
