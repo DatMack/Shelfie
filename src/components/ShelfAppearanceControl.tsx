@@ -162,7 +162,6 @@ export function ShelfAppearanceControl({
                 className="visually-hidden"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                capture="environment"
                 onChange={(event) => void chooseSpineImage(event.target.files?.[0])}
               />
               <button type="button" className="spine-upload-button" disabled={uploading} onClick={() => fileInput.current?.click()}>

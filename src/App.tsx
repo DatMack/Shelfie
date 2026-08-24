@@ -44,13 +44,14 @@ import {
   addCatalogBookToMyShelf,
   bookPatchToDatabase,
   deleteMyBook,
-  importLocalBook,
   loadTourCompleted,
   loadMyLibrary,
   markTourCompleted,
   mapLibraryRows,
+  restoreCachedLibrary,
   saveShelfOrder,
   uploadBookCover,
+  uploadCustomSpine,
   uploadSignedBookProof,
   getSignedBookProofUrl,
   updateMyBook,
@@ -96,6 +97,7 @@ type AddBookOptions = {
   signed?: boolean
   firstEdition?: boolean
   gifted?: boolean
+  customSpineUrl?: string
 }
 type BookDetailsDisplay = 'side' | 'card'
 
@@ -272,7 +274,7 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
   useEffect(() => {
     let cancelled = false
     async function connectLibrary() {
-      const remoteRows = await loadMyLibrary(userId)
+      let remoteRows = await loadMyLibrary(userId)
       if (cancelled) return
 
       const cached = loadCachedLibrary(userId)
@@ -280,23 +282,12 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       const firstRecoveryCheck = !libraryRecoveryDone(userId)
       if (cached.length > 0 && (restoreNeeded || (firstRecoveryCheck && remoteRows.length === 0))) {
         markLibraryRestore(userId, true)
-        const restoreResults = await Promise.allSettled(
-          cached.map((book) => importLocalBook(userId, book)),
-        )
-        const failedCount = restoreResults.filter((result) => result.status === 'rejected').length
-
-        if (failedCount > 0) {
-          setBooks(cached)
-          setNotice(`Shelfie recovered your local shelf, but ${failedCount} ${failedCount === 1 ? 'book still needs' : 'books still need'} to sync. Refresh to retry safely.`)
-          return
-        }
-
-        const restoredRows = await loadMyLibrary(userId)
+        remoteRows = await restoreCachedLibrary(userId, cached)
         if (cancelled) return
         markLibraryRestore(userId, false)
         markLibraryRecoveryDone(userId)
-        setBooks(mapLibraryRows(restoredRows))
-        setNotice(`${restoredRows.length} ${restoredRows.length === 1 ? 'book was' : 'books were'} safely restored to your account.`)
+        setBooks(mapLibraryRows(remoteRows))
+        setNotice(`${remoteRows.length} ${remoteRows.length === 1 ? 'book was' : 'books were'} safely restored to your account.`)
         setLibraryReady(true)
         return
       }
@@ -560,7 +551,6 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
     }
 
     const colors = colorsFor(enriched.title)
-    const userBook = await addCatalogBookToMyShelf({ result: enriched, ...normalizedOptions })
     const ownershipPatch = bookPatchToDatabase({
       condition: normalizedOptions.condition,
       purchasePrice: normalizedOptions.purchasePrice,
@@ -569,8 +559,14 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       signed: normalizedOptions.signed,
       firstEdition: normalizedOptions.firstEdition,
       gifted: normalizedOptions.gifted,
+      displayStyle: normalizedOptions.customSpineUrl ? 'Spine' : undefined,
+      spineDesign: normalizedOptions.customSpineUrl ? 'Custom Image' : undefined,
+      customSpineUrl: normalizedOptions.customSpineUrl,
+      customSpinePositionX: normalizedOptions.customSpineUrl ? 50 : undefined,
+      customSpinePositionY: normalizedOptions.customSpineUrl ? 50 : undefined,
+      customSpineZoom: normalizedOptions.customSpineUrl ? 100 : undefined,
     })
-    if (Object.keys(ownershipPatch).length) await updateMyBook(userBook.id, ownershipPatch)
+    const userBook = await addCatalogBookToMyShelf({ result: enriched, ...normalizedOptions, copy: ownershipPatch })
     const newBook: Book = {
       id: userBook.id,
       title: enriched.title,
@@ -599,6 +595,12 @@ export function App({ userId, userEmail, fallbackName, fallbackAvatar, onSignOut
       signed: normalizedOptions.signed,
       firstEdition: normalizedOptions.firstEdition,
       gifted: normalizedOptions.gifted,
+      displayStyle: normalizedOptions.customSpineUrl ? 'Spine' : undefined,
+      spineDesign: normalizedOptions.customSpineUrl ? 'Custom Image' : undefined,
+      customSpineUrl: normalizedOptions.customSpineUrl,
+      customSpinePositionX: normalizedOptions.customSpineUrl ? 50 : undefined,
+      customSpinePositionY: normalizedOptions.customSpineUrl ? 50 : undefined,
+      customSpineZoom: normalizedOptions.customSpineUrl ? 100 : undefined,
       ...(normalizedOptions.status === 'Currently Reading' ? { currentPage: 0 } : {}),
     }
 
@@ -1527,6 +1529,7 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
   const [publisher, setPublisher] = useState('')
   const [description, setDescription] = useState('')
   const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [spineFile, setSpineFile] = useState<File | null>(null)
   const [status, setStatus] = useState<ReadingStatus>('To Be Read')
   const [owned, setOwned] = useState(true)
   const [format, setFormat] = useState<BookFormat>('Paperback')
@@ -1540,6 +1543,11 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const coverPreview = useMemo(() => coverFile ? URL.createObjectURL(coverFile) : '', [coverFile])
+  const spinePreview = useMemo(() => spineFile ? URL.createObjectURL(spineFile) : '', [spineFile])
+
+  useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview) }, [coverPreview])
+  useEffect(() => () => { if (spinePreview) URL.revokeObjectURL(spinePreview) }, [spinePreview])
 
   function chooseManualStatus(nextStatus: ReadingStatus) {
     setStatus(nextStatus)
@@ -1555,16 +1563,18 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
 
   async function saveManualBook(event: FormEvent) {
     event.preventDefault()
-    if (!title.trim() || !author.trim()) return setError('Title and author are required.')
+    if (!title.trim()) return setError('A title is required.')
     setSaving(true)
     setError('')
     setSuccess('')
     try {
+      const manualId = crypto.randomUUID()
       const coverUrl = coverFile ? await uploadBookCover(coverFile) : undefined
+      const customSpineUrl = spineFile ? await uploadCustomSpine(`manual-${manualId}`, spineFile) : undefined
       const manual: BookSearchResult = {
-        key: `manual:${crypto.randomUUID()}`,
+        key: `manual:${manualId}`,
         source: 'manual',
-        title: title.trim(), author: author.trim(), isbn: isbn.trim() || undefined,
+        title: title.trim(), author: author.trim() || 'Unknown author', isbn: isbn.trim() || undefined,
         year: Number(year) || undefined, pages: Number(pages) || undefined,
         genre: genre.trim() || undefined, subjects: genre.trim() ? [genre.trim()] : undefined,
         publisher: publisher.trim() || undefined, description: description.trim() || undefined,
@@ -1574,10 +1584,10 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
         status, owned, format, condition: owned ? condition : undefined,
         purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
         estimatedValue: estimatedValue ? Number(estimatedValue) : undefined,
-        specialEdition, signed, firstEdition, gifted,
+        specialEdition, signed, firstEdition, gifted, customSpineUrl,
       })
       setSuccess(`${manual.title} was added successfully.`)
-      setTitle(''); setAuthor(''); setIsbn(''); setYear(''); setPages(''); setGenre(''); setPublisher(''); setDescription(''); setCoverFile(null); setPurchasePrice(''); setEstimatedValue('');
+      setTitle(''); setAuthor(''); setIsbn(''); setYear(''); setPages(''); setGenre(''); setPublisher(''); setDescription(''); setCoverFile(null); setSpineFile(null); setPurchasePrice(''); setEstimatedValue('');
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : typeof saveError === 'object' && saveError && 'message' in saveError ? String(saveError.message) : 'Could not save this book.')
     } finally { setSaving(false) }
@@ -1585,13 +1595,22 @@ function ManualBookForm({ onAdd }: { onAdd: (book: BookSearchResult, options: Ad
 
   return <form className="manual-book-form" onSubmit={saveManualBook}>
     <div className="manual-book-grid">
-      <label className="manual-cover-upload">
-        <span>{coverFile ? <img src={URL.createObjectURL(coverFile)} alt="Cover preview" /> : <><Camera size={28} /><strong>Add cover</strong><small>Upload or take a photo</small></>}</span>
-        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
-      </label>
+      <div className="manual-image-column">
+        <div className="manual-image-uploads">
+          <label className="manual-cover-upload">
+            <span>{coverPreview ? <img src={coverPreview} alt="Cover preview" /> : <><Camera size={28} /><strong>Add cover</strong><small>Front of the book</small></>}</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} />
+          </label>
+          <label className="manual-cover-upload manual-spine-upload">
+            <span>{spinePreview ? <img src={spinePreview} alt="Spine preview" /> : <><BookOpen size={28} /><strong>Add spine</strong><small>Photo of the real spine</small></>}</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => setSpineFile(event.target.files?.[0] ?? null)} />
+          </label>
+        </div>
+        <p className="manual-image-note">Both pictures save with this book. The cover appears in details; the spine photo can be shown on your shelf.</p>
+      </div>
       <div className="manual-primary-fields">
         <label>Title *<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label>
-        <label>Author *<input value={author} onChange={(event) => setAuthor(event.target.value)} required /></label>
+        <label>Author<input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Optional" /></label>
         <label>ISBN<input value={isbn} onChange={(event) => setIsbn(event.target.value)} inputMode="numeric" /></label>
       </div>
     </div>

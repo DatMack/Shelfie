@@ -294,11 +294,13 @@ export async function addCatalogBookToMyShelf({
   status,
   owned,
   format,
+  copy,
 }: {
   result: BookSearchResult
   status: ReadingStatus
   owned: boolean
   format?: BookFormat
+  copy?: Record<string, unknown>
 }) {
   const client = requireSupabase()
   const externalSource = result.source ?? 'openlibrary'
@@ -335,6 +337,7 @@ export async function addCatalogBookToMyShelf({
       p_status: statusToDatabase(status),
       p_owned: owned,
       p_format: owned ? formatToDatabase(format) : null,
+      p_copy: copy ?? {},
     })
 
   if (error) throw error
@@ -346,6 +349,7 @@ export async function addCatalogBookToMyShelf({
 export async function importLocalBook(userId: string, book: Book) {
   const result: BookSearchResult = {
     key: book.externalId ?? `local:${book.id}`,
+    source: book.source === 'sample' ? 'manual' : (book.source ?? 'manual'),
     title: book.title,
     author: book.author,
     coverUrl: book.coverUrl,
@@ -357,7 +361,6 @@ export async function importLocalBook(userId: string, book: Book) {
     publisher: book.publisher,
     language: book.language,
     description: book.description,
-    source: book.source === 'sample' ? 'manual' : book.source,
   }
   const catalog = await findOrCreateCatalogBook(result)
   const client = requireSupabase()
@@ -372,6 +375,37 @@ export async function importLocalBook(userId: string, book: Book) {
   return data
 }
 
+export async function restoreCachedLibrary(userId: string, books: Book[]) {
+  for (const book of books) {
+    const result: BookSearchResult = {
+      key: book.externalId ?? `recovered:${book.id}`,
+      source: book.source === 'sample' ? 'manual' : (book.source ?? 'manual'),
+      title: book.title,
+      author: book.author,
+      coverUrl: book.coverUrl,
+      largeCoverUrl: book.coverUrl,
+      year: book.year,
+      pages: book.pages,
+      isbn: book.isbn,
+      genre: book.genre,
+      subjects: book.subjects,
+      publisher: book.publisher,
+      language: book.language,
+      description: book.description,
+    }
+
+    await addCatalogBookToMyShelf({
+      result,
+      status: book.status,
+      owned: Boolean(book.owned),
+      format: book.format,
+      copy: bookPatchToDatabase(book),
+    })
+  }
+
+  return loadMyLibrary(userId)
+}
+
 export function bookPatchToDatabase(patch: Partial<Book>) {
   const output: Record<string, unknown> = {}
   if (patch.status !== undefined) output.status = statusToDatabase(patch.status)
@@ -380,6 +414,9 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.owned !== undefined) output.owned = patch.owned
   if (patch.format !== undefined) output.format = formatToDatabase(patch.format)
   if (patch.purchasePrice !== undefined) output.purchase_price = patch.purchasePrice
+  if (patch.purchaseDate !== undefined) output.purchase_date = patch.purchaseDate
+  if (patch.acquiredFrom !== undefined) output.acquired_from = patch.acquiredFrom
+  if (patch.storageLocation !== undefined) output.storage_location = patch.storageLocation
   if (patch.estimatedValue !== undefined) output.manual_estimated_value = patch.estimatedValue
   if (patch.valueLow !== undefined) output.manual_value_low = patch.valueLow
   if (patch.valueHigh !== undefined) output.manual_value_high = patch.valueHigh
@@ -393,9 +430,6 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   if (patch.moodTags !== undefined) output.mood_tags = patch.moodTags
   if (patch.rereadCount !== undefined) output.reread_count = patch.rereadCount
   if (patch.shelfIndex !== undefined) output.shelf_index = patch.shelfIndex
-  if (patch.purchaseDate !== undefined) output.purchase_date = patch.purchaseDate
-  if (patch.storageLocation !== undefined) output.storage_location = patch.storageLocation
-  if (patch.acquiredFrom !== undefined) output.acquired_from = patch.acquiredFrom
   if (patch.signedProofPath !== undefined) output.signed_proof_path = patch.signedProofPath
   if (patch.signedProofVerifiedAt !== undefined) output.signed_proof_verified_at = patch.signedProofVerifiedAt
   if (patch.displayEditionId !== undefined) output.display_edition_id = patch.displayEditionId
@@ -421,13 +455,29 @@ export function bookPatchToDatabase(patch: Partial<Book>) {
   return output
 }
 
-export async function uploadCustomSpine(userBookId: string, file: File) {
+const acceptedBookImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+const acceptedBookImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'])
+const maxBookImageBytes = 10 * 1024 * 1024
+
+function validateBookImage(file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (!acceptedBookImageTypes.has(file.type.toLowerCase()) && !acceptedBookImageExtensions.has(extension)) {
+    throw new Error('Choose a JPG, PNG, WebP, HEIC, or HEIF picture.')
+  }
+  if (file.size > maxBookImageBytes) {
+    throw new Error('Keep book pictures under 10 MB.')
+  }
+}
+
+export async function uploadCustomSpine(storageKey: string, file: File) {
+  validateBookImage(file)
   const client = requireSupabase()
   const { data: { user }, error: userError } = await client.auth.getUser()
   if (userError || !user) throw userError ?? new Error('Sign in to upload spine art.')
 
   const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
-  const path = `${user.id}/${userBookId}/spine-${Date.now()}.${extension}`
+  const safeStorageKey = storageKey.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80) || 'book'
+  const path = `${user.id}/${safeStorageKey}/spine-${Date.now()}.${extension}`
   const { error } = await client.storage.from('book-spines').upload(path, file, {
     cacheControl: '3600',
     contentType: file.type || 'image/jpeg',
@@ -439,6 +489,7 @@ export async function uploadCustomSpine(userBookId: string, file: File) {
 }
 
 export async function uploadBookCover(file: File) {
+  validateBookImage(file)
   const client = requireSupabase()
   const { data: { user }, error: userError } = await client.auth.getUser()
   if (userError || !user) throw userError ?? new Error('Sign in to upload a book cover.')
@@ -491,6 +542,7 @@ export async function updateMyBook(userBookId: string, patch: Record<string, unk
   if (error) throw error
   return data
 }
+
 
 export async function deleteMyBook(userBookId: string) {
   const client = requireSupabase()
